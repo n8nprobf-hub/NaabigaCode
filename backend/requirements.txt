@@ -1,0 +1,32 @@
+# NaabigaCode backend — dépendances du coeur Thot (bloc principal + cli/pty)
+# Généré depuis thot.egg-info/requires.txt (bloc de base, sans extras optionnels)
+
+openai==2.24.0
+certifi==2026.5.20
+python-dotenv==1.2.2
+fire==0.7.1
+httpx[socks]==0.28.1
+rich==14.3.3
+tenacity==9.1.4
+pyyaml==6.0.3
+ruamel.yaml==0.18.17
+requests==2.33.0
+jinja2==3.1.6
+pydantic==2.13.4
+prompt_toolkit==3.0.52
+croniter==6.0.0
+packaging==26.0
+Markdown==3.10.2
+PyJWT[crypto]==2.13.0
+urllib3<3,>=2.7.0
+cryptography==46.0.7
+psutil==7.2.2
+websockets==15.0.1
+pathspec==1.1.1
+fastapi<1,>=0.104.0
+uvicorn[standard]<1,>=0.24.0
+python-multipart<1,>=0.0.9
+Pillow==12.2.0
+ptyprocess<1,>=0.7.0
+# simple-term-menu exclu : dépendance de l'ancienne UI CLI Thot, non requise
+# pour le moteur agent (le bridge passe par le callback de streaming).

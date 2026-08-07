@@ -1,33 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Box, Text, useApp, useInput, useStdin } from 'ink'
+import { Box, Text, useApp, useInput } from 'ink'
 import Gradient from 'ink-gradient'
 import BigText from 'ink-big-text'
 import Spinner from 'ink-spinner'
-import TextInput from 'ink-text-input'
-import { useSessionEvents } from './useSessionEvents'
-import type { SessionEvent } from './useSessionEvents'
-
-function PromptRow({ onSubmit }: { onSubmit: (value: string) => void }) {
-  const { isRawModeSupported } = useStdin()
-  const [value, setValue] = useState('')
-
-  if (!isRawModeSupported) {
-    return <Text color="gray">Prompt indisponible (stdin non RAW).</Text>
-  }
-
-  return (
-    <Box>
-      <Text color="green">❯</Text>
-      <Text color="gray"> </Text>
-      <TextInput
-        value={value}
-        onChange={setValue}
-        onSubmit={onSubmit}
-        placeholder="Ask anything…"
-      />
-    </Box>
-  )
-}
+import { UncontrolledTextInput } from 'ink-text-input'
+import { connectSession } from './sessionApi'
+import type { SessionApi, SessionEvent } from './sessionApi'
 
 function EventLine({ event }: { event: SessionEvent }) {
   switch (event.type) {
@@ -74,76 +52,76 @@ function EventLine({ event }: { event: SessionEvent }) {
   }
 }
 
-export default function App() {
+interface Props {
+  baseUrl: string
+}
+
+export default function App({ baseUrl }: Props) {
   const { exit } = useApp()
-  const { connect, sendMessage, createSession, abort } = useSessionEvents(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
-  const [input, setInput] = useState('')
-  const [lines, setLines] = useState<SessionEvent[]>([])
   const [busy, setBusy] = useState(false)
-  const esRef = useRef<EventSource | null>(null)
+  const [lines, setLines] = useState<SessionEvent[]>([])
+  const apiRef = useRef<SessionApi | null>(null)
 
+  // Create session on mount
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const sid = await createSession()
-      if (!cancelled && sid) {
+    void (async () => {
+      const probe = connectSession(baseUrl, 'probe')
+      const sid = await probe.createSession()
+      if (cancelled) return
+      if (sid) {
         setSessionId(sid)
         setReady(true)
+        apiRef.current = connectSession(baseUrl, sid)
+      } else {
+        setLines((prev) => [...prev, { type: 'error', message: `Backend injoignable sur ${baseUrl}` }])
       }
     })()
     return () => {
       cancelled = true
-      esRef.current?.close()
     }
-  }, [createSession])
+  }, [baseUrl])
 
+  // Stream events once session is up
   useEffect(() => {
-    if (!sessionId || !connect) return
-    const es = connect()
-    esRef.current = es
+    const api = apiRef.current
+    if (!api || !ready) return
+    api.streamEvents(
+      (ev) => {
+        setLines((prev) => [...prev, ev])
+        if (ev.type === 'done' || ev.type === 'error' || ev.type === 'aborted') setBusy(false)
+      },
+      () => {
+        setLines((prev) => [...prev, { type: 'info', message: 'stream fermé' }])
+        setBusy(false)
+      },
+    )
+  }, [ready])
 
-    es.addEventListener('error', () => setReady(false))
-
-    const handler = (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse(ev.data) as SessionEvent
-        setLines((prev) => [...prev, data])
-        if (data.type === 'done' || data.type === 'error') setBusy(false)
-      } catch {
-        // ignore non-JSON keep-alives
-      }
-    }
-    es.addEventListener('message', handler)
-    return () => {
-      es.removeEventListener('message', handler)
-      es.close()
-    }
-  }, [sessionId, connect])
-
-  useInput(async (_input, key) => {
-    if (key.ctrl && key.c) {
-      if (sessionId && abort) await abort(sessionId)
+  useInput((input, key) => {
+    if (key.ctrl && input.toLowerCase() === 'c') {
+      void apiRef.current?.abort()
       exit()
     }
   })
 
   const handleSubmit = async (value: string) => {
-    if (!sessionId || !sendMessage || busy) return
+    const api = apiRef.current
+    if (!api || busy) return
     setBusy(true)
-    const ok = await sendMessage(sessionId, value)
-    if (ok) {
-      setLines((prev) => [...prev, { type: 'user', text: value }])
-    } else {
+    const ok = await api.sendMessage(value)
+    if (!ok) {
+      setLines((prev) => [...prev, { type: 'error', message: 'message refusé (session occupée ?)' }])
       setBusy(false)
     }
   }
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" minHeight="100%">
       {!ready ? (
-        <Box justifyContent="center" flexGrow={1}>
+        <Box justifyContent="center">
           <Spinner type="dots" />
           <Text color="gray"> initialisation de la session…</Text>
         </Box>
@@ -151,13 +129,13 @@ export default function App() {
         <Box flexDirection="column" flexGrow={1}>
           <Box justifyContent="center" paddingY={1}>
             <Gradient name="fruit">
-              <BigText text="NAABIGACODE" font='tiny' />
+              <BigText text="NAABIGACODE" font="tiny" />
             </Gradient>
-            <Box paddingTop={1}>
-              <Text color="gray" dimColor>
-                session {sessionId} — tape Ctrl+C pour quitter
-              </Text>
-            </Box>
+          </Box>
+          <Box paddingX={1}>
+            <Text color="gray" dimColor>
+              session {sessionId} — Ctrl+C pour quitter
+            </Text>
           </Box>
           <Box flexGrow={1} flexDirection="column" paddingX={1}>
             {lines.map((ev, i) => (
@@ -172,7 +150,11 @@ export default function App() {
             ) : null}
           </Box>
           <Box>
-            <PromptRow onSubmit={handleSubmit} />
+            <Text color="green">❯ </Text>
+            <UncontrolledTextInput
+              placeholder="Ask anything…"
+              onSubmit={handleSubmit}
+            />
           </Box>
         </Box>
       )}

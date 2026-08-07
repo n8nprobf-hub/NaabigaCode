@@ -73,30 +73,6 @@ class Session:
 
 sessions: Dict[str, Session] = {}
 
-# ── Lazy import of the real agent (heavy) ────────────────────────────
-_agent_loop = None
-
-
-def get_agent_loop():
-    global _agent_loop
-    if _agent_loop is None:
-        try:
-            from agent.conversation_loop import ConversationLoop  # type: ignore
-
-            _agent_loop = ConversationLoop
-            logger.info("Loaded ConversationLoop from agent/")
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Could not load ConversationLoop (%s); using stub agent.", exc)
-
-            class _StubLoop:  # type: ignore
-                async def run_turn(self, session, user_message: str):
-                    session.emit({"type": "assistant", "text": f"ECHO: {user_message}"})
-                    session.emit({"type": "done"})
-
-            _agent_loop = _StubLoop
-    return _agent_loop
-
-
 # ── FastAPI app ───────────────────────────────────────────────────────
 app = FastAPI(title="NaabigaCode Backend", version="0.1.0")
 
@@ -163,9 +139,21 @@ async def session_events(session_id: str) -> StreamingResponse:
 # ── Agent loop adapter ───────────────────────────────────────────────
 async def _run_turn(session: Session, user_message: str) -> None:
     try:
-        loop_cls = get_agent_loop()
-        loop = loop_cls()
-        await loop.run_turn(session, user_message)
+        from agent_bridge import run_turn_async
+
+        result = await run_turn_async(
+            session.id,
+            user_message,
+            emit=session.emit,
+            provider=os.getenv("THOT_INFERENCE_PROVIDER"),
+            model=os.getenv("THOT_INFERENCE_MODEL"),
+        )
+        final = result.get("final_response") or ""
+        if result.get("failed") and not final:
+            session.emit({"type": "error", "message": result.get("error") or "turn failed"})
+        elif final and not result.get("streamed", False):
+            # Sécurité : si aucun delta n'est parti, on renvoie la réponse finale.
+            session.emit({"type": "assistant", "text": final})
     except Exception as exc:
         logger.exception("Agent turn failed: %s", exc)
         session.emit({"type": "error", "message": str(exc)})
