@@ -1,9 +1,28 @@
 # NaabigaCode
 
-**Moteur agentique Python (hérité de Thot) + TUI terminal React/Ink (style OpenClaude).**
+> **Le futur du développement logiciel s'écrit maintenant.**
 
-NaabigaCode conserve tout le coeur fonctionnel de Thot en Python, et le branche
-sur une interface terminal écrite en React (Ink), comme OpenClaude.
+Et si votre équipe pouvait déléguer la **génération**, la **correction** et le **refactoring** de code à un agent IA, directement depuis le terminal ?
+
+**naabiga-cli** arrive : un agent de codage conçu par **ICONEDOR SARL** pour accompagner les entreprises et équipes tech d'Afrique de l'Ouest dans leur transformation digitale.
+
+### ✅ Ce que naabiga-cli vous apporte
+
+- **Génération de code autonome** — de la fonction isolée au module complet, l'agent écrit, corrige et itère jusqu'au résultat.
+- **Compréhension du contexte de votre projet** — il lit votre codebase, vos conventions et vos contraintes avant d'agir.
+- **Pensé pour les réalités et besoins des équipes locales** — connexions instables, ressources limitées, offline-first : l'outil s'adapte à votre environnement, pas l'inverse.
+- **Un outil, une vision** — accélérer l'innovation depuis **Ouagadougou**, pour toute l'Afrique de l'Ouest.
+
+---
+
+## Pourquoi NaabigaCode ?
+
+NaabigaCode est un **agent de codage souverain et local-first** :
+
+- **Moteur agentique en Python** (hérité de Thot) — outils, MCP, gestion de contexte, multi-providers
+- **Interface terminal en React/Ink** (style OpenClaude) — moderne, fluide, temps réel
+- **100% local** — aucune télémétrie, aucun service cloud obligatoire, vos données restent chez vous
+- **Multi-provider** — OpenAI-compatible, Gemini, Ollama, et bien d'autres, au choix de l'équipe
 
 ## Architecture
 
@@ -14,10 +33,10 @@ sur une interface terminal écrite en React (Ink), comme OpenClaude.
 └──────────────┬───────────────┘
                │ HTTP + SSE (127.0.0.1:8400)
 ┌──────────────▼───────────────┐
-│  backend/ (Python)           │   coeur agentique Thot
+│  backend/ (Python)           │   coeur agentique
 │  main.py → FastAPI           │   /session/* endpoints
 │  agent/ (ThotEngine)         │   conversation_loop, tools, context
-│  thot_cli/                   │   CLI et utilitaires Thot
+│  thot_cli/                   │   CLI et utilitaires
 └──────────────────────────────┘
 ```
 
@@ -28,7 +47,7 @@ sur une interface terminal écrite en React (Ink), comme OpenClaude.
 ```bash
 cd backend
 python3 -m venv .venv
-.venv/bin/pip install fastapi 'uvicorn[standard]'
+.venv/bin/pip install -r requirements.txt
 .venv/bin/python main.py
 # → http://127.0.0.1:8400 (health: /health)
 ```
@@ -86,3 +105,7 @@ HTTP/SSE :
 - La partie agent reste 100% Python (`backend/agent/`, `backend/thot_cli/`).
 - La TUI est 100% React/Ink (`frontend/`), modèle OpenClaude.
 - Le backend est local-first : aucune télémétrie, aucun service cloud requis.
+
+---
+
+© **ICONEDOR SARL** — Ouagadougou, Burkina Faso. Construit pour les équipes tech d'Afrique de l'Ouest.
