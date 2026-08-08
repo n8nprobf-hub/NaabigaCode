@@ -117,6 +117,115 @@ npm run dev       # tsx src/cli.tsx
 {"type":"aborted"}
 ```
 
+## Guide d'utilisation
+
+### 1. Lancer une session
+
+```bash
+naabiga                    # session interactive dans le terminal
+naabiga --backend-url http://127.0.0.1:8400   # backend déjà lancé ailleurs
+naabiga --version          # vérifier l'installation
+```
+
+Une fois la TUI affichée, tapez directement votre demande puis `Entrée`.
+`Ctrl+C` interrompt le tour en cours puis quitte la session.
+
+### 2. Générer du code
+
+L'agent comprend le contexte de votre projet (fichiers, conventions, outils) :
+il lit, écrit et exécute directement dans votre dépôt.
+
+```text
+Crée un module Python de validation d'email (format, domaines jetables,
+DNS MX) avec tests unitaires, dans src/validation/
+```
+
+```text
+Ajoute une route /api/health qui renvoie {status: "ok"} avec le temps de
+réponse, en suivant le style des routes existantes du projet
+```
+
+### 3. Corriger un bug
+
+```text
+Le script scripts/deploy.py échoue avec "KeyError: 'REGION'" quand
+REGION n'est pas définie. Corrige-le et ajoute un message d'erreur clair.
+```
+
+```text
+Les tests de auth.test.ts passent en local mais échouent en CI.
+Analyse la différence d'environnement et corrige.
+```
+
+### 4. Refactorer / nettoyer
+
+```text
+Refactorise le fichier services/order.py : extrais la logique de calcul
+de taxe dans un module dédié, garde la même API publique, et mets à jour
+les tests existants.
+```
+
+```text
+Identifie le code mort dans src/utils/ et propose une liste de fichiers
+supprimables avec la justification de chaque suppression.
+```
+
+### 5. Comprendre une base de code
+
+```text
+Explique-moi l'architecture de ce projet : points d'entrée, flux de
+données principal, et où sont les couches métier vs infrastructure.
+```
+
+```text
+Où et comment les permissions sont-elles vérifiées dans ce dépôt ?
+Montre-moi le chemin de code exact.
+```
+
+### 6. Exécuter des commandes
+
+L'agent peut lancer des commandes dans votre terminal (tests, builds,
+git) et en analyser les résultats :
+
+```text
+Lance les tests du module auth, analyse les échecs et corrige-les un par
+un jusqu'à ce que tout passe.
+```
+
+```text
+Crée une branche feature/payment-fix, applique la correction que tu as
+proposée, et committe avec un message clair.
+```
+
+### 7. Multi-tours et historique
+
+- **Poursuivre** : l'agent garde le contexte de la session — vous pouvez
+  enchaîner « et maintenant », « autrement », « essaie encore ».
+- **Changer de direction** : décrivez simplement le nouveau besoin, il
+  adapte son plan.
+- **Arrêter** : `Ctrl+C` interrompt proprement le tour en cours.
+
+### 8. Trucs et astuces
+
+| Astuce | Exemple |
+|---|---|
+| **Soyez précis sur le chemin** | « dans `src/services/` » plutôt que « quelque part » |
+| **Donnez le comportement attendu** | « qui renvoie 404 si l'id n'existe pas » |
+| **Citez les erreurs exactes** | collez le message d'erreur complet |
+| **Demandez des tests adjacents** | « avec tests » / « mets à jour les tests » |
+| **Exigez la vérification** | « lance les tests pour prouver que ça marche » |
+| **Itérez** | « presque — le cas limite X casse encore » |
+
+### 9. Résolution de problèmes
+
+| Problème | Solution |
+|---|---|
+| `naabiga` introuvable | `export PATH="$HOME/.naabiga/node_modules/.bin:$PATH"` (ou nouveau terminal) |
+| Backend injoignable | Vérifiez `curl http://127.0.0.1:8400/health` ; relancez `naabiga` |
+| Aucun provider configuré | Configurez `NAABIGA_HOME/config.yaml` (provider + modèle + clé API) |
+| Tools désactivés | Vérifiez `platform_toolsets.cli` dans la config (ex. `naabiga-cli`) |
+| Python introuvable | Installez Python ≥ 3.10 puis relancez l'installateur |
+
 ## Contrat UI ↔ moteur
 
 Le frontend **ne touche jamais** au moteur directement. Il passe par le bridge
