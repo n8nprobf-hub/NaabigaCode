@@ -1,0 +1,32 @@
+# Exclusions pour la publication npm — le postinstall crée le venv à l'installation
+**/.venv/**
+**/__pycache__/**
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/**
+**/.mypy_cache/**
+**/.ruff_cache/**
+
+# Git / dev
+.git/**
+.gitignore
+.github/**
+.gitattributes
+.npmignore
+
+# Node / frontend sources (seul dist/ est publié)
+frontend/node_modules/**
+frontend/src/**
+frontend/scripts/**
+frontend/tsconfig.json
+frontend/package.json
+frontend/package-lock.json
+frontend/vite.config.*
+frontend/index.html
+
+# Docs internes
+docs/**
+bridge/**
+*.md.tmp
+node_modules/**
+*.tgz

@@ -74,8 +74,8 @@ async function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        // Config Thot déjà existante sur la machine (sinon THOT_HOME par défaut).
-        ...(process.env.THOT_HOME ? {} : { THOT_HOME: process.env.THOT_HOME_NAABIGA ?? '/opt/data/.thot-home' }),
+        // Config Thot : THOT_HOME explicite si fourni, sinon home utilisateur.
+        ...(process.env.THOT_HOME ? {} : { THOT_HOME: process.env.THOT_HOME_NAABIGA ?? join(process.env.HOME || '', '.thot') }),
       },
     })
     backendProc.stdout?.on('data', (d) => process.stderr.write(`[backend] ${d}`))
