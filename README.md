@@ -20,7 +20,7 @@ Et si votre équipe pouvait déléguer la **génération**, la **correction** et
 NaabigaCode est un **agent de codage souverain et local-first** :
 
 - **Moteur agentique en Python** (hérité du projet Thot, rebaptisé Naabiga) — outils, MCP, gestion de contexte, multi-providers
-- **Interface terminal en React/Ink** (style OpenClaude) — moderne, fluide, temps réel
+- **Interface terminal en React/Ink** — moderne, fluide, temps réel
 - **100% local** — aucune télémétrie, aucun service cloud obligatoire, vos données restent chez vous
 - **Multi-provider** — OpenAI-compatible, Gemini, Ollama, et bien d'autres, au choix de l'équipe
 
@@ -130,7 +130,7 @@ HTTP/SSE :
 ## Notes
 
 - La partie agent reste 100% Python (`backend/agent/`, `backend/naabiga_cli/`).
-- La TUI est 100% React/Ink (`frontend/`), modèle OpenClaude.
+- La TUI est 100% React/Ink (`frontend/`).
 - Le backend est local-first : aucune télémétrie, aucun service cloud requis.
 
 ---
