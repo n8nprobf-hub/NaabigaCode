@@ -42,6 +42,33 @@ NaabigaCode est un **agent de codage souverain et local-first** :
 
 ## Démarrage rapide
 
+### Installation (une commande)
+
+**Linux / macOS :**
+
+```bash
+curl -fsSL https://naabigaCode.iconedor.com/install.sh | bash
+```
+
+**Windows (PowerShell) :**
+
+```powershell
+iex (irm https://naabigaCode.iconedor.com/install.ps1)
+```
+
+> Les URLs `naabigaCode.iconedor.com` pointent vers les mêmes scripts sur
+> GitHub (`raw.githubusercontent.com/n8nprobf-hub/NaabigaCode/main/scripts/`).
+> L'installateur détecte Node.js, tente `npm install -g naabiga-cli`, puis
+> retombe sur le tarball officiel de la release GitHub. Il crée le venv
+> Python et installe les dépendances automatiquement.
+
+**Ou via npm (une fois publié sur le registry) :**
+
+```bash
+npm install -g naabiga-cli   # puis : naabiga
+npx naabiga-cli              # sans installation
+```
+
 ### Backend (Python)
 
 ```bash
