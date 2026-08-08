@@ -1,4 +1,4 @@
-"""disk_cleanup — ephemeral file cleanup for Thot Agent.
+"""disk_cleanup — ephemeral file cleanup for Naabiga Agent.
 
 Library module wrapping the deterministic cleanup rules written by
 @LVT382009 in PR #12212. The plugin ``__init__.py`` wires these
@@ -10,13 +10,13 @@ Rules:
   - test files    → delete immediately at task end (age >= 0)
   - temp files    → delete after 7 days
   - cron-output   → delete after 14 days
-  - empty dirs    → always delete (under THOT_HOME)
+  - empty dirs    → always delete (under NAABIGA_HOME)
   - research      → keep 10 newest, prompt for older (deep only)
   - chrome-profile→ prompt after 14 days (deep only)
   - >500 MB files → prompt always (deep only)
 
-Scope: strictly THOT_HOME and /tmp/thot-*
-Never touches: ~/.thot/logs/ or any system directory.
+Scope: strictly NAABIGA_HOME and /tmp/naabiga-*
+Never touches: ~/.naabiga/logs/ or any system directory.
 """
 
 from __future__ import annotations
@@ -29,13 +29,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from thot_constants import get_thot_home
+    from naabiga_constants import get_naabiga_home
 except Exception:  # pragma: no cover — plugin may load before constants resolves
     import os
 
-    def get_thot_home() -> Path:  # type: ignore[no-redef]
-        val = (os.environ.get("THOT_HOME") or "").strip()
-        return Path(val).resolve() if val else (Path.home() / ".thot").resolve()
+    def get_naabiga_home() -> Path:  # type: ignore[no-redef]
+        val = (os.environ.get("NAABIGA_HOME") or "").strip()
+        return Path(val).resolve() if val else (Path.home() / ".naabiga").resolve()
 
 
 logger = logging.getLogger(__name__)
@@ -46,8 +46,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def get_state_dir() -> Path:
-    """State dir — separate from ``$THOT_HOME/logs/``."""
-    return get_thot_home() / "disk-cleanup"
+    """State dir — separate from ``$NAABIGA_HOME/logs/``."""
+    return get_naabiga_home() / "disk-cleanup"
 
 
 def get_tracked_file() -> Path:
@@ -55,7 +55,7 @@ def get_tracked_file() -> Path:
 
 
 def get_log_file() -> Path:
-    """Audit log — intentionally NOT under ``$THOT_HOME/logs/``."""
+    """Audit log — intentionally NOT under ``$NAABIGA_HOME/logs/``."""
     return get_state_dir() / "cleanup.log"
 
 
@@ -64,19 +64,19 @@ def get_log_file() -> Path:
 # ---------------------------------------------------------------------------
 
 def is_safe_path(path: Path) -> bool:
-    """Accept only paths under THOT_HOME or ``/tmp/thot-*``.
+    """Accept only paths under NAABIGA_HOME or ``/tmp/naabiga-*``.
 
     Rejects Windows mounts (``/mnt/c`` etc.) and any system directory.
     """
-    thot_home = get_thot_home()
+    naabiga_home = get_naabiga_home()
     try:
-        path.resolve().relative_to(thot_home)
+        path.resolve().relative_to(naabiga_home)
         return True
     except (ValueError, OSError):
         pass
-    # Allow /tmp/thot-* explicitly
+    # Allow /tmp/naabiga-* explicitly
     parts = path.parts
-    if len(parts) >= 3 and parts[1] == "tmp" and parts[2].startswith("thot-"):
+    if len(parts) >= 3 and parts[1] == "tmp" and parts[2].startswith("naabiga-"):
         return True
     return False
 
@@ -147,7 +147,7 @@ ALLOWED_CATEGORIES = {
 _EMPTY_DIR_PROTECTED_TOP_LEVEL = frozenset({
     "logs", "memories", "sessions", "cron", "cronjobs",
     "cache", "skills", "plugins", "disk-cleanup", "optional-skills",
-    "thot-agent", "backups", "profiles", ".worktrees",
+    "naabiga-agent", "backups", "profiles", ".worktrees",
 })
 
 _EMPTY_DIR_SWEEP_PRUNE_DIRS = frozenset({
@@ -156,7 +156,7 @@ _EMPTY_DIR_SWEEP_PRUNE_DIRS = frozenset({
 })
 
 
-# Paths under $THOT_HOME that must NEVER be deleted by quick(),
+# Paths under $NAABIGA_HOME that must NEVER be deleted by quick(),
 # regardless of what the stored category says.  This is a defense-in-depth
 # guard against stale tracked.json entries from before #34840.
 _PROTECTED_CRON_PATHS: set[str] = set()
@@ -174,12 +174,12 @@ def _is_protected_cron_path(p: Path) -> bool:
     protected, because deleting it wholesale erases every job's retained run
     history at once.
     """
-    # Lazily build the set once per process so THOT_HOME is resolved
+    # Lazily build the set once per process so NAABIGA_HOME is resolved
     # exactly once.
     if not _PROTECTED_CRON_PATHS:
-        thot_home = get_thot_home()
+        naabiga_home = get_naabiga_home()
         for parent in ("cron", "cronjobs"):
-            base = thot_home / parent
+            base = naabiga_home / parent
             _PROTECTED_CRON_PATHS.add(str(base))
             _PROTECTED_CRON_PATHS.add(str(base / "output"))
             _PROTECTED_CRON_PATHS.add(str(base / "jobs.json"))
@@ -213,7 +213,7 @@ def track(path_str: str, category: str, silent: bool = False) -> bool:
         return False
 
     if not is_safe_path(path):
-        _log(f"REJECT: {path} (outside THOT_HOME)")
+        _log(f"REJECT: {path} (outside NAABIGA_HOME)")
         return False
 
     size = path.stat().st_size if path.is_file() else 0
@@ -364,15 +364,15 @@ def quick() -> Dict[str, Any]:
         else:
             new_tracked.append(item)
 
-    # Remove empty dirs under THOT_HOME, but never recurse into known
-    # durable state trees.  Some installs place the Thot checkout, venv,
-    # and desktop build under THOT_HOME; a full rglob over that tree can
+    # Remove empty dirs under NAABIGA_HOME, but never recurse into known
+    # durable state trees.  Some installs place the Naabiga checkout, venv,
+    # and desktop build under NAABIGA_HOME; a full rglob over that tree can
     # stall the gateway event loop for minutes.
-    thot_home = get_thot_home()
+    naabiga_home = get_naabiga_home()
     empty_removed = 0
     sweep_stack: List[Tuple[Path, bool]] = []
     try:
-        for top in thot_home.iterdir():
+        for top in naabiga_home.iterdir():
             if (
                 top.is_dir()
                 and not top.is_symlink()
@@ -555,14 +555,14 @@ def guess_category(path: Path) -> Optional[str]:
         return None
 
     # Skip the state dir itself, logs, memory files, sessions, config.
-    thot_home = get_thot_home()
+    naabiga_home = get_naabiga_home()
     try:
-        rel = path.resolve().relative_to(thot_home)
+        rel = path.resolve().relative_to(naabiga_home)
         top = rel.parts[0] if rel.parts else ""
         if top in {
             "disk-cleanup", "logs", "memories", "sessions", "config.yaml",
             "skills", "plugins", ".env", "USER.md", "MEMORY.md", "SOUL.md",
-            "auth.json", "thot-agent",
+            "auth.json", "naabiga-agent",
         }:
             return None
         if top == "cron" or top == "cronjobs":
@@ -577,7 +577,7 @@ def guess_category(path: Path) -> Optional[str]:
         if top == "cache":
             return "temp"
     except ValueError:
-        # Path isn't under THOT_HOME (e.g. /tmp/thot-*) — fall through.
+        # Path isn't under NAABIGA_HOME (e.g. /tmp/naabiga-*) — fall through.
         pass
 
     name = path.name

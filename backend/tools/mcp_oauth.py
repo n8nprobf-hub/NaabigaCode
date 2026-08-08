@@ -11,7 +11,7 @@ which handles discovery, dynamic client registration, PKCE, token exchange,
 refresh, and step-up authorization automatically.
 
 This module provides the glue:
-    - ``ThotTokenStorage``: persists tokens/client-info to disk so they
+    - ``NaabigaTokenStorage``: persists tokens/client-info to disk so they
       survive across process restarts.
     - Callback server: ephemeral localhost HTTP server to capture the OAuth
       redirect with the authorization code.
@@ -29,7 +29,7 @@ Configuration in config.yaml::
           client_secret: "secret"               # confidential clients only
           scope: "read write"                   # default: server-provided
           redirect_port: 0                      # 0 = auto-pick free port
-          client_name: "My Custom Client"       # default: "Thot Agent"
+          client_name: "My Custom Client"       # default: "Naabiga Agent"
 """
 
 import asyncio
@@ -50,7 +50,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
-from thot_constants import secure_parent_dir
+from naabiga_constants import secure_parent_dir
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ _SKIP_TOKENS = frozenset({"skip", "cancel", "s", "n", "no", "q", "quit"})
 # _wait_for_callback maps this to OAuthNonInteractiveError ("user_skipped")
 # so the MCP setup path treats it as a non-fatal "continue without this
 # server" rather than a hard failure.
-_USER_SKIPPED_SENTINEL = "__thot_user_skipped__"
+_USER_SKIPPED_SENTINEL = "__naabiga_user_skipped__"
 
 
 # ---------------------------------------------------------------------------
@@ -132,14 +132,14 @@ _USER_SKIPPED_SENTINEL = "__thot_user_skipped__"
 def _get_token_dir() -> Path:
     """Return the directory for MCP OAuth token files.
 
-    Uses THOT_HOME so each profile gets its own OAuth tokens.
-    Layout: ``THOT_HOME/mcp-tokens/``
+    Uses NAABIGA_HOME so each profile gets its own OAuth tokens.
+    Layout: ``NAABIGA_HOME/mcp-tokens/``
     """
     try:
-        from thot_constants import get_thot_home
-        base = Path(get_thot_home())
+        from naabiga_constants import get_naabiga_home
+        base = Path(get_naabiga_home())
     except ImportError:
-        base = Path(os.environ.get("THOT_HOME", str(Path.home() / ".thot")))
+        base = Path(os.environ.get("NAABIGA_HOME", str(Path.home() / ".naabiga")))
     return base / "mcp-tokens"
 
 
@@ -171,13 +171,13 @@ def _raise_if_non_interactive(lead: str) -> None:
     """Raise ``OAuthNonInteractiveError`` unless an interactive session exists.
 
     ``lead`` is the boundary-specific first sentence; this helper appends the
-    shared, actionable ``thot mcp login`` next-step so the guidance wording
+    shared, actionable ``naabiga mcp login`` next-step so the guidance wording
     lives in one place across every non-interactive OAuth boundary (#57836).
     """
     if not _is_interactive():
         raise OAuthNonInteractiveError(
             f"{lead} "
-            "Run `thot mcp login <server>` interactively to (re)authorize, "
+            "Run `naabiga mcp login <server>` interactively to (re)authorize, "
             "then restart or reload the gateway."
         )
 
@@ -282,18 +282,18 @@ def _write_json(path: Path, data: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ThotTokenStorage -- persistent token/client-info on disk
+# NaabigaTokenStorage -- persistent token/client-info on disk
 # ---------------------------------------------------------------------------
 
 
-class ThotTokenStorage:
+class NaabigaTokenStorage:
     """Persist OAuth tokens and client registration to JSON files.
 
     File layout::
 
-        THOT_HOME/mcp-tokens/<server_name>.json         -- tokens
-        THOT_HOME/mcp-tokens/<server_name>.client.json   -- client info
-        THOT_HOME/mcp-tokens/<server_name>.meta.json     -- oauth server metadata
+        NAABIGA_HOME/mcp-tokens/<server_name>.json         -- tokens
+        NAABIGA_HOME/mcp-tokens/<server_name>.client.json   -- client info
+        NAABIGA_HOME/mcp-tokens/<server_name>.meta.json     -- oauth server metadata
     """
 
     def __init__(self, server_name: str):
@@ -314,7 +314,7 @@ class ThotTokenStorage:
         data = _read_json(self._tokens_path())
         if data is None:
             return None
-        # Thot records an absolute wall-clock ``expires_at`` alongside the
+        # Naabiga records an absolute wall-clock ``expires_at`` alongside the
         # SDK's serialized token (see ``set_tokens``). On read we rewrite
         # ``expires_in`` to the remaining seconds so the SDK's downstream
         # ``update_token_expiry`` computes the correct absolute time and
@@ -517,7 +517,7 @@ def _make_callback_handler() -> tuple[type, dict]:
 
             body = (
                 "<html><body><h2>Authorization Successful</h2>"
-                "<p>You can close this tab and return to Thot.</p></body></html>"
+                "<p>You can close this tab and return to Naabiga.</p></body></html>"
             ) if code else (
                 "<html><body><h2>Authorization Failed</h2>"
                 f"<p>Error: {error or 'unknown'}</p></body></html>"
@@ -587,7 +587,7 @@ async def _redirect_handler(authorization_url: str) -> None:
             f"         ssh -N -L {_oauth_port}:127.0.0.1:{_oauth_port} <user>@<this-host>\n"
             f"       then open the URL above and let it redirect normally.\n"
             f"\n"
-            f"  See: https://github.com/n8nprobf-hub/Thot#readme\n",
+            f"  See: https://github.com/n8nprobf-hub/Naabiga#readme\n",
             file=sys.stderr,
         )
 
@@ -745,7 +745,7 @@ def _paste_callback_reader(result: dict) -> None:
             return
         result["error"] = _USER_SKIPPED_SENTINEL
         print(
-            "  OAuth skipped. Run `thot mcp login <server>` later to "
+            "  OAuth skipped. Run `naabiga mcp login <server>` later to "
             "authenticate, or set ``enabled: false`` on that server in "
             "config.yaml to disable persistently.",
             file=sys.stderr,
@@ -798,7 +798,7 @@ def _paste_callback_reader(result: dict) -> None:
 
 def remove_oauth_tokens(server_name: str) -> None:
     """Delete stored OAuth tokens and client info for a server."""
-    storage = ThotTokenStorage(server_name)
+    storage = NaabigaTokenStorage(server_name)
     storage.remove()
     logger.info("OAuth tokens removed for '%s'", server_name)
 
@@ -844,7 +844,7 @@ def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
         raise ValueError(
             "_configure_callback_port() must be called before _build_client_metadata()"
         )
-    client_name = cfg.get("client_name", "Thot Agent")
+    client_name = cfg.get("client_name", "Naabiga Agent")
     scope = cfg.get("scope")
     redirect_uri = f"http://127.0.0.1:{port}/callback"
 
@@ -864,7 +864,7 @@ def _build_client_metadata(cfg: dict) -> "OAuthClientMetadata":
 
 
 def _maybe_preregister_client(
-    storage: "ThotTokenStorage",
+    storage: "NaabigaTokenStorage",
     cfg: dict,
     client_metadata: "OAuthClientMetadata",
 ) -> None:
@@ -923,14 +923,14 @@ def build_oauth_auth(
         return None
 
     cfg = dict(oauth_config or {})  # copy — we mutate _resolved_port
-    storage = ThotTokenStorage(server_name)
+    storage = NaabigaTokenStorage(server_name)
 
     if not _is_interactive() and not storage.has_cached_tokens():
         raise OAuthNonInteractiveError(
             "MCP OAuth for "
             f"'{server_name}': non-interactive environment and no cached tokens "
             "found. The OAuth flow requires browser authorization. Run "
-            f"`thot mcp login {server_name}` interactively first to complete "
+            f"`naabiga mcp login {server_name}` interactively first to complete "
             "initial authorization, then cached tokens will be reused."
         )
 

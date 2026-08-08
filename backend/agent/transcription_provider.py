@@ -17,7 +17,7 @@ Two coexisting STT extension surfaces — in resolution order:
    for the 6 backends shipped today (faster-whisper, local_command,
    Groq, OpenAI, Mistral, xAI). **Always win** — plugins cannot
    shadow them. The single-env-var shell escape hatch
-   ``THOT_LOCAL_STT_COMMAND`` is preserved via the built-in
+   ``NAABIGA_LOCAL_STT_COMMAND`` is preserved via the built-in
    ``local_command`` path.
 2. **Plugin-registered providers** (this ABC). For new STT backends —
    OpenRouter, SenseAudio, Gemini-STT, custom proprietary engines —
@@ -32,7 +32,7 @@ re-checks defensively).
 
 Providers live in ``<repo>/plugins/transcription/<name>/`` (built-in
 plugins, none shipped today) or
-``~/.thot/plugins/transcription/<name>/`` (user-installed).
+``~/.naabiga/plugins/transcription/<name>/`` (user-installed).
 
 Response contract
 -----------------
@@ -79,7 +79,7 @@ class TranscriptionProvider(abc.ABC):
 
     @property
     def display_name(self) -> str:
-        """Human-readable label shown in ``thot tools``.
+        """Human-readable label shown in ``naabiga tools``.
 
         Defaults to ``name.title()``.
         """
@@ -92,7 +92,7 @@ class TranscriptionProvider(abc.ABC):
         importable. Default: True (providers with no external
         dependencies are always available).
 
-        Must NOT raise — used by the picker and ``thot setup`` for
+        Must NOT raise — used by the picker and ``naabiga setup`` for
         availability displays and should fail gracefully.
         """
         return True
@@ -122,7 +122,7 @@ class TranscriptionProvider(abc.ABC):
         return None
 
     def get_setup_schema(self) -> Dict[str, Any]:
-        """Return provider metadata for the ``thot tools`` picker.
+        """Return provider metadata for the ``naabiga tools`` picker.
 
         Used by ``tools_config.py`` to inject this provider as a row in
         the Speech-to-Text provider list. Shape::

@@ -5,15 +5,15 @@ Mac laptop with a signed-in Chrome). Exposes a WebSocket endpoint that
 accepts signed RPC requests and dispatches them to the existing
 ``plugins.google_meet.process_manager`` module.
 
-Launched by ``thot meet node run``.
+Launched by ``naabiga meet node run``.
 
 Token handling
 --------------
 On first boot we mint 32 hex chars of entropy and persist them at
-``$THOT_HOME/workspace/meetings/node_token.json``. Subsequent boots
+``$NAABIGA_HOME/workspace/meetings/node_token.json``. Subsequent boots
 reuse the same token so previously-approved gateways don't need to be
 re-paired. The operator copies this token out-of-band to the gateway
-via ``thot meet node approve <name> <url> <token>``.
+via ``naabiga meet node approve <name> <url> <token>``.
 
 Dependencies
 ------------
@@ -30,12 +30,12 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 from plugins.google_meet.node import protocol as _proto
 
 
 def _default_token_path() -> Path:
-    return Path(get_thot_home()) / "workspace" / "meetings" / "node_token.json"
+    return Path(get_naabiga_home()) / "workspace" / "meetings" / "node_token.json"
 
 
 class NodeServer:
@@ -46,7 +46,7 @@ class NodeServer:
         host: str = "127.0.0.1",
         port: int = 18789,
         token_path: Optional[Path] = None,
-        display_name: str = "thot-meet-node",
+        display_name: str = "naabiga-meet-node",
     ) -> None:
         self.host = host
         self.port = port

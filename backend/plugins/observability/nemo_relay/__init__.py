@@ -1,4 +1,4 @@
-"""nemo_relay — optional Thot plugin for NeMo Relay observability."""
+"""nemo_relay — optional Naabiga plugin for NeMo Relay observability."""
 
 from __future__ import annotations
 
@@ -48,13 +48,13 @@ class _Settings:
     adaptive_mode: str = "observe_only"
     atof_enabled: bool = False
     atof_output_directory: str = ""
-    atof_filename: str = "thot-atof.jsonl"
+    atof_filename: str = "naabiga-atof.jsonl"
     atof_mode: str = "append"
     atif_enabled: bool = False
     atif_output_directory: str = ""
-    atif_filename_template: str = "thot-atif-{session_id}.json"
+    atif_filename_template: str = "naabiga-atif-{session_id}.json"
     atif_subagent_export_mode: str = "embedded"
-    atif_agent_name: str = "Thot Agent"
+    atif_agent_name: str = "Naabiga Agent"
     atif_agent_version: str = "unknown"
     atif_model_name: str = "unknown"
 
@@ -66,7 +66,7 @@ class _Runtime:
         self.sessions: dict[str, _SessionState] = {}
         self.subagent_parents: dict[str, _SubagentParent] = {}
         self.atof_exporter: Any = None
-        self._atof_subscriber_name = "thot.nemo_relay.atof"
+        self._atof_subscriber_name = "naabiga.nemo_relay.atof"
         self._plugin_config_initialized = self._configure_plugins_toml()
         self._plugin_config_needs_reinit = False
         if not self._plugin_config_initialized:
@@ -179,9 +179,9 @@ class _Runtime:
                 self.settings.atif_agent_name,
                 self.settings.atif_agent_version,
                 model_name=str(kwargs.get("model") or self.settings.atif_model_name),
-                extra={"source": "thot-agent", "plugin": "observability/nemo_relay"},
+                extra={"source": "naabiga-agent", "plugin": "observability/nemo_relay"},
             )
-            state.atif_subscriber_name = f"thot.nemo_relay.atif.{session_id}"
+            state.atif_subscriber_name = f"naabiga.nemo_relay.atif.{session_id}"
             state.atif_exporter.register(state.atif_subscriber_name)
 
         subagent_parent = self.subagent_parents.get(session_id)
@@ -194,7 +194,7 @@ class _Runtime:
             state.parent_session_id = subagent_parent.parent_session_id
 
         state.handle = self.nemo_relay.scope.push(
-            f"thot-session-{session_id}",
+            f"naabiga-session-{session_id}",
             self.nemo_relay.ScopeType.Agent,
             handle=parent_handle,
             data={"session_id": session_id},
@@ -260,7 +260,7 @@ class _Runtime:
                 metadata=_subagent_child_metadata(kwargs, metadata),
             )
         self.nemo_relay.scope.event(
-            "thot.subagent.start",
+            "naabiga.subagent.start",
             handle=parent_state.handle,
             data=_jsonable(kwargs),
             metadata=metadata,
@@ -270,7 +270,7 @@ class _Runtime:
         child_session_id = _child_session_id(kwargs)
         if child_session_id:
             self.subagent_parents.pop(child_session_id, None)
-        self.mark("thot.subagent.stop", kwargs)
+        self.mark("naabiga.subagent.stop", kwargs)
 
     def managed_llm_enabled(self) -> bool:
         return (
@@ -295,7 +295,7 @@ class _Runtime:
         # NeMo Relay's native managed execution may wrap a failing callback as an
         # internal runtime error, hiding the real downstream provider/tool
         # exception. Capture the original here and re-raise it after managed
-        # execution so Thot retry classification still sees it. The LLM and tool
+        # execution so Naabiga retry classification still sees it. The LLM and tool
         # paths share this scaffolding; they differ only in payload normalization,
         # response shaping, and the Relay call itself.
         raw_response: dict[str, Any] = {"set": False, "value": None}
@@ -430,7 +430,7 @@ def on_session_start(**kwargs: Any) -> None:
 def on_session_end(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: (runtime.mark("thot.session.end", kwargs), runtime.export_atif(runtime.ensure_session(kwargs))))
+        _safe(lambda: (runtime.mark("naabiga.session.end", kwargs), runtime.export_atif(runtime.ensure_session(kwargs))))
 
 
 def on_session_finalize(**kwargs: Any) -> None:
@@ -448,13 +448,13 @@ def on_session_reset(**kwargs: Any) -> None:
 def on_pre_llm_call(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("thot.turn.start", kwargs))
+        _safe(lambda: runtime.mark("naabiga.turn.start", kwargs))
 
 
 def on_post_llm_call(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("thot.turn.end", kwargs))
+        _safe(lambda: runtime.mark("naabiga.turn.end", kwargs))
 
 
 def on_pre_api_request(**kwargs: Any) -> None:
@@ -493,7 +493,7 @@ def on_post_api_request(**kwargs: Any) -> None:
         state = runtime.ensure_session(kwargs)
         span = state.llm_spans.pop(_api_key(kwargs), None)
         if span is None:
-            runtime.mark("thot.api.response.unmatched", kwargs)
+            runtime.mark("naabiga.api.response.unmatched", kwargs)
             return
         runtime.nemo_relay.llm.call_end(
             span,
@@ -516,7 +516,7 @@ def on_api_request_error(**kwargs: Any) -> None:
         state = runtime.ensure_session(kwargs)
         span = state.llm_spans.pop(_api_key(kwargs), None)
         if span is None:
-            runtime.mark("thot.api.error", kwargs)
+            runtime.mark("naabiga.api.error", kwargs)
             return
         runtime.nemo_relay.llm.call_end(
             span,
@@ -561,7 +561,7 @@ def on_post_tool_call(**kwargs: Any) -> None:
         state = runtime.ensure_session(kwargs)
         span = state.tool_spans.pop(_tool_key(kwargs), None)
         if span is None:
-            runtime.mark("thot.tool.response.unmatched", kwargs)
+            runtime.mark("naabiga.tool.response.unmatched", kwargs)
             return
         runtime.nemo_relay.tools.call_end(
             span,
@@ -576,13 +576,13 @@ def on_post_tool_call(**kwargs: Any) -> None:
 def on_pre_approval_request(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("thot.approval.request", kwargs))
+        _safe(lambda: runtime.mark("naabiga.approval.request", kwargs))
 
 
 def on_post_approval_response(**kwargs: Any) -> None:
     runtime = _get_runtime()
     if runtime is not None:
-        _safe(lambda: runtime.mark("thot.approval.response", kwargs))
+        _safe(lambda: runtime.mark("naabiga.approval.response", kwargs))
 
 
 def on_subagent_start(**kwargs: Any) -> None:
@@ -642,7 +642,7 @@ def _get_runtime() -> Optional[_Runtime]:
 
 
 def _load_settings() -> _Settings:
-    plugins_toml_path = _env("THOT_NEMO_RELAY_PLUGINS_TOML")
+    plugins_toml_path = _env("NAABIGA_NEMO_RELAY_PLUGINS_TOML")
     plugins_config = _load_plugins_config(plugins_toml_path)
     adaptive_config = _enabled_component_config(plugins_config, "adaptive")
     return _Settings(
@@ -650,17 +650,17 @@ def _load_settings() -> _Settings:
         plugins_config=plugins_config,
         adaptive_enabled=adaptive_config is not None,
         adaptive_mode=_adaptive_mode(adaptive_config),
-        atof_enabled=_env_bool("THOT_NEMO_RELAY_ATOF_ENABLED"),
-        atof_output_directory=_env("THOT_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY"),
-        atof_filename=_env("THOT_NEMO_RELAY_ATOF_FILENAME") or "thot-atof.jsonl",
-        atof_mode=_env("THOT_NEMO_RELAY_ATOF_MODE") or "append",
-        atif_enabled=_env_bool("THOT_NEMO_RELAY_ATIF_ENABLED"),
-        atif_output_directory=_env("THOT_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY"),
-        atif_filename_template=_env("THOT_NEMO_RELAY_ATIF_FILENAME_TEMPLATE") or "thot-atif-{session_id}.json",
+        atof_enabled=_env_bool("NAABIGA_NEMO_RELAY_ATOF_ENABLED"),
+        atof_output_directory=_env("NAABIGA_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY"),
+        atof_filename=_env("NAABIGA_NEMO_RELAY_ATOF_FILENAME") or "naabiga-atof.jsonl",
+        atof_mode=_env("NAABIGA_NEMO_RELAY_ATOF_MODE") or "append",
+        atif_enabled=_env_bool("NAABIGA_NEMO_RELAY_ATIF_ENABLED"),
+        atif_output_directory=_env("NAABIGA_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY"),
+        atif_filename_template=_env("NAABIGA_NEMO_RELAY_ATIF_FILENAME_TEMPLATE") or "naabiga-atif-{session_id}.json",
         atif_subagent_export_mode=_atif_subagent_export_mode(),
-        atif_agent_name=_env("THOT_NEMO_RELAY_ATIF_AGENT_NAME") or "Thot Agent",
-        atif_agent_version=_env("THOT_NEMO_RELAY_ATIF_AGENT_VERSION") or "unknown",
-        atif_model_name=_env("THOT_NEMO_RELAY_ATIF_MODEL_NAME") or "unknown",
+        atif_agent_name=_env("NAABIGA_NEMO_RELAY_ATIF_AGENT_NAME") or "Naabiga Agent",
+        atif_agent_version=_env("NAABIGA_NEMO_RELAY_ATIF_AGENT_VERSION") or "unknown",
+        atif_model_name=_env("NAABIGA_NEMO_RELAY_ATIF_MODEL_NAME") or "unknown",
     )
 
 
@@ -725,7 +725,7 @@ def _env(name: str) -> str:
 
 
 def _atif_subagent_export_mode() -> str:
-    mode = _env("THOT_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE").lower()
+    mode = _env("NAABIGA_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE").lower()
     return "all" if mode == "all" else "embedded"
 
 
@@ -842,7 +842,7 @@ def _value(obj: Any, key: str, default: Any = None) -> Any:
 
 
 def _original_downstream_error(exc: Exception) -> BaseException:
-    # Thot wraps downstream execution failures in a local/private exception
+    # Naabiga wraps downstream execution failures in a local/private exception
     # class, so detect the wrapper by shape instead of importing it here.
     original = getattr(exc, "original", None)
     if exc.__class__.__name__ == "_DownstreamExecutionError" and isinstance(original, BaseException):
@@ -856,7 +856,7 @@ def _is_relay_wrapped_callback_error(exc: Exception, callback_error: Exception |
     # trailing traceback/suffix in a future Relay version doesn't silently defeat
     # the unwrap; the class-name + message prefix still discriminates the real
     # downstream failure from unrelated Relay-internal errors. If Relay drops the
-    # leading ``internal error:`` shape entirely, this returns False and Thot
+    # leading ``internal error:`` shape entirely, this returns False and Naabiga
     # falls back to surfacing Relay's error (the pre-fix behavior) rather than
     # masking it.
     if callback_error is None or not isinstance(exc, RuntimeError):
@@ -946,7 +946,7 @@ def _resolve_awaitable(value: Any) -> Any:
 
     thread = threading.Thread(
         target=_runner,
-        name="thot-nemo-relay-awaitable",
+        name="naabiga-nemo-relay-awaitable",
         daemon=True,
     )
     thread.start()

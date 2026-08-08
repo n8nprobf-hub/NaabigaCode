@@ -164,7 +164,7 @@ def build_turn_context(
     except Exception:
         pass
 
-    # Tag log records on this thread with the session ID for ``thot logs``.
+    # Tag log records on this thread with the session ID for ``naabiga logs``.
     set_session_context(agent.session_id)
 
     # Bind the skill write-origin ContextVar for this thread.
@@ -370,7 +370,7 @@ def build_turn_context(
         )
         _preflight_deferred = _defer_preflight(_preflight_tokens)
         # Codex app-server threads are compacted by the codex agent itself;
-        # Thot only initiates compaction in "thot" mode (#36801).
+        # Naabiga only initiates compaction in "naabiga" mode (#36801).
         _codex_native_auto = (
             getattr(agent, "api_mode", None) == "codex_app_server"
             and str(
@@ -413,8 +413,8 @@ def build_turn_context(
             )
         elif _codex_native_auto:
             logger.info(
-                "Skipping Thot preflight compression for codex app-server "
-                "(mode=%s); Thot will not start thread compaction here.",
+                "Skipping Naabiga preflight compression for codex app-server "
+                "(mode=%s); Naabiga will not start thread compaction here.",
                 getattr(agent, "codex_app_server_auto_compaction", "native"),
             )
         elif _compressor.should_compress(_preflight_tokens):
@@ -464,7 +464,7 @@ def build_turn_context(
     # Plugin hook: pre_llm_call (context injected into user message, not system prompt).
     plugin_user_context = ""
     try:
-        from thot_cli.plugins import invoke_hook as _invoke_hook
+        from naabiga_cli.plugins import invoke_hook as _invoke_hook
         _pre_results = _invoke_hook(
             "pre_llm_call",
             session_id=agent.session_id,

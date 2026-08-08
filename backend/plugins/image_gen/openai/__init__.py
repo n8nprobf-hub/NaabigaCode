@@ -2,7 +2,7 @@
 
 Exposes OpenAI's ``gpt-image-2`` model at three quality tiers as an
 :class:`ImageGenProvider` implementation. The tiers are implemented as
-three virtual model IDs so the ``thot tools`` model picker and the
+three virtual model IDs so the ``naabiga tools`` model picker and the
 ``image_gen.model`` config key behave like any other multi-model backend:
 
     gpt-image-2-low     ~15s   fastest, good for iteration
@@ -11,7 +11,7 @@ three virtual model IDs so the ``thot tools`` model picker and the
 
 All three hit the same underlying API model (``gpt-image-2``) with a
 different ``quality`` parameter. Output is base64 JSON → saved under
-``$THOT_HOME/cache/images/``.
+``$NAABIGA_HOME/cache/images/``.
 
 Selection precedence (first hit wins):
 
@@ -84,7 +84,7 @@ _SIZES = {
 def _load_openai_config() -> Dict[str, Any]:
     """Read ``image_gen`` from config.yaml (returns {} on any failure)."""
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
 
         cfg = load_config()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
@@ -238,8 +238,8 @@ class OpenAIImageGenProvider(ImageGenProvider):
         if not os.environ.get("OPENAI_API_KEY"):
             return error_response(
                 error=(
-                    "OPENAI_API_KEY not set. Run `thot tools` → Image "
-                    "Generation → OpenAI to configure, or `thot setup` "
+                    "OPENAI_API_KEY not set. Run `naabiga tools` → Image "
+                    "Generation → OpenAI to configure, or `naabiga setup` "
                     "to add the key."
                 ),
                 error_type="auth_required",

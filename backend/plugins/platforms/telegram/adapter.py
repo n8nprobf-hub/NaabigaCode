@@ -420,7 +420,7 @@ _UPDATER_STOP_TIMEOUT = 15.0
 # after _drain_polling_connections(), particularly when both primary and fallback
 # Telegram endpoints are unreachable. Bounding start_polling() prevents the
 # reconnect ladder from stalling indefinitely and allows the heartbeat loop to
-# trigger its own recovery path. Refs: NousResearch/thot-agent#59614
+# trigger its own recovery path. Refs: NousResearch/naabiga-agent#59614
 _UPDATER_START_TIMEOUT = 30.0
 
 
@@ -543,7 +543,7 @@ class TelegramAdapter(BasePlatformAdapter):
         )
         # Buffer rapid/album photo updates so Telegram image bursts are handled
         # as a single MessageEvent instead of self-interrupting multiple turns.
-        self._media_batch_delay_seconds = env_float("THOT_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", 0.8)
+        self._media_batch_delay_seconds = env_float("NAABIGA_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS", 0.8)
         self._pending_photo_batches: Dict[str, MessageEvent] = {}
         self._pending_photo_batch_tasks: Dict[str, asyncio.Task] = {}
         self._media_group_events: Dict[str, MessageEvent] = {}
@@ -556,13 +556,13 @@ class TelegramAdapter(BasePlatformAdapter):
         # in ~180ms.  All bounds are conservative for Telegram's
         # ~1 edit/s flood envelope.
         self._text_batch_delay_seconds = self._env_float_clamped(
-            "THOT_TELEGRAM_TEXT_BATCH_DELAY_SECONDS",
+            "NAABIGA_TELEGRAM_TEXT_BATCH_DELAY_SECONDS",
             0.3,
             min_value=0.08,
             max_value=2.0,
         )
         self._text_batch_split_delay_seconds = self._env_float_clamped(
-            "THOT_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
+            "NAABIGA_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
             1.0,
             min_value=self._text_batch_delay_seconds,
             max_value=4.0,
@@ -972,7 +972,7 @@ class TelegramAdapter(BasePlatformAdapter):
 
         Supergroup/forum topics use ``message_thread_id``. True Bot API Direct
         Messages topics can opt in with explicit ``direct_messages_topic_id``
-        metadata. Thot-created private-chat topic lanes are marked with
+        metadata. Naabiga-created private-chat topic lanes are marked with
         ``telegram_dm_topic_reply_fallback``. Live replies send the private
         topic thread id together with a reply anchor; synthetic/resumed sends
         without an anchor use ``direct_messages_topic_id`` when metadata has it.
@@ -1298,7 +1298,7 @@ class TelegramAdapter(BasePlatformAdapter):
     # the RAW agent markdown so richer constructs (tables, task lists,
     # collapsible details, math, ...) render natively. The legacy MarkdownV2
     # send() path stays as the fallback for unsupported/oversized content and
-    # older PTB/clients. Streaming edits stay on Thot' existing MarkdownV2
+    # older PTB/clients. Streaming edits stay on Naabiga' existing MarkdownV2
     # edit path for now; finalization can re-send as rich and delete the stale
     # preview until rich_message edit support is wired directly.
     # ------------------------------------------------------------------
@@ -1351,7 +1351,7 @@ class TelegramAdapter(BasePlatformAdapter):
         Telegram Desktop 6.9.1 can crash while rendering Bot API 10.1 rich
         messages containing math inside a collapsible details block
         (telegramdesktop/tdesktop#30808). The Bot API accepts the payload, so
-        Thot must skip rich delivery up front and use the legacy MarkdownV2
+        Naabiga must skip rich delivery up front and use the legacy MarkdownV2
         path until affected Desktop clients age out.
         """
         if not content:
@@ -2070,7 +2070,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     # "in-flight" and skips triggering a new reconnect, and
                     # the gateway silently drops messages for hours.
                     # Bounding stop() lets the reconnect ladder always advance.
-                    # Refs: NousResearch/thot-agent#58270
+                    # Refs: NousResearch/naabiga-agent#58270
                     await asyncio.wait_for(app.updater.stop(), timeout=_UPDATER_STOP_TIMEOUT)
                 except asyncio.TimeoutError:
                     logger.warning(
@@ -2093,7 +2093,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # out within PTB's internal flow. Bounding start_polling() prevents
             # the reconnect ladder from stalling indefinitely and allows the
             # heartbeat loop to trigger its own recovery path.
-            # Refs: NousResearch/thot-agent#59614
+            # Refs: NousResearch/naabiga-agent#59614
             try:
                 await asyncio.wait_for(
                     app.updater.start_polling(
@@ -2433,7 +2433,7 @@ class TelegramAdapter(BasePlatformAdapter):
         if self.has_fatal_error and self.fatal_error_code == "telegram_polling_conflict":
             return
         # Transient 409 Conflict errors arise when the previous gateway process
-        # has been killed (e.g. during `thot update` or `--replace` handoffs)
+        # has been killed (e.g. during `naabiga update` or `--replace` handoffs)
         # but its long-poll connection hasn't yet expired on Telegram's servers.
         # Telegram holds open getUpdates sessions for up to ~30s after the
         # client disconnects, so a new gateway starting immediately will receive
@@ -2553,8 +2553,8 @@ class TelegramAdapter(BasePlatformAdapter):
             "Telegram polling could not recover after %d retries (%ds total wait). "
             "The previous gateway session is still held open on Telegram's servers, "
             "or another process is using the same bot token. "
-            "To recover: ensure no other Thot or OpenClaw instance is running "
-            "with this token, then restart the gateway with 'thot gateway restart'."
+            "To recover: ensure no other Naabiga or OpenClaw instance is running "
+            "with this token, then restart the gateway with 'naabiga gateway restart'."
             % (MAX_CONFLICT_RETRIES, sum(10 + i * 10 for i in range(1, MAX_CONFLICT_RETRIES + 1)))
         )
         logger.error(
@@ -2743,8 +2743,8 @@ class TelegramAdapter(BasePlatformAdapter):
     ) -> None:
         """Save a newly created thread_id back into config.yaml so it persists across restarts."""
         try:
-            from thot_constants import get_thot_home
-            config_path = get_thot_home() / "config.yaml"
+            from naabiga_constants import get_naabiga_home
+            config_path = get_naabiga_home() / "config.yaml"
             if not config_path.exists():
                 logger.warning("[%s] Config file not found at %s, cannot persist thread_id", self.name, config_path)
                 return
@@ -2793,7 +2793,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 changed = True
 
             if changed:
-                from thot_cli.config import atomic_config_write
+                from naabiga_cli.config import atomic_config_write
 
                 atomic_config_write(
                     config_path,
@@ -2920,11 +2920,11 @@ class TelegramAdapter(BasePlatformAdapter):
                     BotCommandScopeAllGroupChats,
                     BotCommandScopeDefault,
                 )
-                from thot_cli.commands import telegram_menu_commands, telegram_menu_max_commands
+                from naabiga_cli.commands import telegram_menu_commands, telegram_menu_max_commands
                 if not self._bot:
                     return
                 # Telegram allows up to 100 commands but has an undocumented
-                # payload size limit (~4KB total).  Thot defaults to 60 to
+                # payload size limit (~4KB total).  Naabiga defaults to 60 to
                 # keep built-ins plus common skill commands visible while
                 # staying under the threshold; users can tune the cap via
                 # platforms.telegram.extra.command_menu.
@@ -3034,7 +3034,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # server's filesystem rather than a relative HTTP path. PTB needs
             # local_mode=True so download_*() reads from disk instead of issuing
             # an HTTP GET that would 404. Requires that the same path is
-            # readable by the Thot process (shared mount, same machine, etc.).
+            # readable by the Naabiga process (shared mount, same machine, etc.).
             if self.config.extra.get("local_mode"):
                 builder = builder.local_mode(True)
                 logger.info("[%s] Using Telegram local_mode (read files from disk)", self.name)
@@ -3055,11 +3055,11 @@ class TelegramAdapter(BasePlatformAdapter):
                     return default
 
             request_kwargs = {
-                "connection_pool_size": _env_int("THOT_TELEGRAM_HTTP_POOL_SIZE", 512),
-                "pool_timeout": _env_float("THOT_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
-                "connect_timeout": _env_float("THOT_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
-                "read_timeout": _env_float("THOT_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
-                "write_timeout": _env_float("THOT_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
+                "connection_pool_size": _env_int("NAABIGA_TELEGRAM_HTTP_POOL_SIZE", 512),
+                "pool_timeout": _env_float("NAABIGA_TELEGRAM_HTTP_POOL_TIMEOUT", 8.0),
+                "connect_timeout": _env_float("NAABIGA_TELEGRAM_HTTP_CONNECT_TIMEOUT", 10.0),
+                "read_timeout": _env_float("NAABIGA_TELEGRAM_HTTP_READ_TIMEOUT", 20.0),
+                "write_timeout": _env_float("NAABIGA_TELEGRAM_HTTP_WRITE_TIMEOUT", 20.0),
             }
 
             # CLOSE_WAIT fd leak (#31599, same class as #18451): PTB's
@@ -3102,7 +3102,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     kwargs["limits"] = _pool_limits
                 return kwargs
 
-            disable_fallback = (os.getenv("THOT_TELEGRAM_DISABLE_FALLBACK_IPS", "").strip().lower() in {"1", "true", "yes", "on"})
+            disable_fallback = (os.getenv("NAABIGA_TELEGRAM_DISABLE_FALLBACK_IPS", "").strip().lower() in {"1", "true", "yes", "on"})
             fallback_ips = self._fallback_ips()
             if not fallback_ips:
                 logger.warning("[%s] Discovering Telegram API fallback IPs via DNS-over-HTTPS…", self.name)
@@ -3197,7 +3197,7 @@ class TelegramAdapter(BasePlatformAdapter):
             except ImportError:
                 NetworkError = TimedOut = OSError  # type: ignore[misc,assignment]
             _max_connect = 8
-            _init_timeout = _env_float("THOT_TELEGRAM_INIT_TIMEOUT", 30.0)
+            _init_timeout = _env_float("NAABIGA_TELEGRAM_INIT_TIMEOUT", 30.0)
             for _attempt in range(_max_connect):
                 try:
                     logger.warning(
@@ -3228,7 +3228,7 @@ class TelegramAdapter(BasePlatformAdapter):
                         raise OSError(
                             f"Telegram initialization timed out after {_max_connect} attempts "
                             f"({_init_timeout:.0f}s each). Check network connectivity to api.telegram.org "
-                            f"or set THOT_TELEGRAM_HTTP_CONNECT_TIMEOUT to a lower value."
+                            f"or set NAABIGA_TELEGRAM_HTTP_CONNECT_TIMEOUT to a lower value."
                         )
                 except (NetworkError, TimedOut, OSError) as init_err:
                     if _attempt < _max_connect - 1:
@@ -4503,7 +4503,7 @@ class TelegramAdapter(BasePlatformAdapter):
     ) -> SendResult:
         """Send an inline-keyboard update prompt (Yes / No buttons).
 
-        Used by the gateway ``/update`` watcher when ``thot update --gateway``
+        Used by the gateway ``/update`` watcher when ``naabiga update --gateway``
         needs user input (stash restore, config migration).
         """
         if not self._bot:
@@ -4760,7 +4760,7 @@ class TelegramAdapter(BasePlatformAdapter):
             return SendResult(success=False, error="Not connected")
 
         try:
-            from thot_cli.providers import get_label
+            from naabiga_cli.providers import get_label
         except ImportError:
             def get_label(slug):
                 return slug
@@ -4823,11 +4823,11 @@ class TelegramAdapter(BasePlatformAdapter):
         a single ``mpg:<gid>`` button; tapping it drills into a member
         sub-keyboard. Single providers (and groups with only one authenticated
         member) render as direct ``mp:<slug>`` buttons. Grouping mirrors the
-        CLI ``thot model`` picker via the shared ``group_providers`` fold,
+        CLI ``naabiga model`` picker via the shared ``group_providers`` fold,
         so all surfaces stay consistent.
         """
         try:
-            from thot_cli.models import group_providers
+            from naabiga_cli.models import group_providers
         except Exception:
             group_providers = None
 
@@ -4938,7 +4938,7 @@ class TelegramAdapter(BasePlatformAdapter):
             return
 
         try:
-            from thot_cli.providers import get_label
+            from naabiga_cli.providers import get_label
         except ImportError:
             def get_label(slug):
                 return slug
@@ -5119,7 +5119,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 return
 
             try:
-                from thot_cli.model_cost_guard import expensive_model_warning
+                from naabiga_cli.model_cost_guard import expensive_model_warning
 
                 # Pricing lookup can hit models.dev / a /models endpoint on a
                 # cache miss — keep it off the event loop.
@@ -5184,7 +5184,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # --- Provider group selected: show member providers ---
             group_id = data[4:]
             try:
-                from thot_cli.models import PROVIDER_GROUPS
+                from naabiga_cli.models import PROVIDER_GROUPS
                 _label, _desc, member_slugs = PROVIDER_GROUPS.get(group_id, ("", "", []))
             except Exception:
                 _label, member_slugs = "", []
@@ -5636,8 +5636,8 @@ class TelegramAdapter(BasePlatformAdapter):
             pass  # non-fatal if edit fails
         # Write the response file
         try:
-            from thot_constants import get_thot_home
-            home = get_thot_home()
+            from naabiga_constants import get_naabiga_home
+            home = get_naabiga_home()
             response_path = home / ".update_response"
             tmp = response_path.with_suffix(".tmp")
             tmp.write_text(answer)
@@ -5648,7 +5648,7 @@ class TelegramAdapter(BasePlatformAdapter):
             logger.error("Failed to write update response from callback: %s", exc)
 
     # Maps `gt:<verb>` -> (script-name, extra-args, success-label, is_state).
-    # Scripts live in ~/.thot/scripts/gmail-triage/. `arg` from the callback
+    # Scripts live in ~/.naabiga/scripts/gmail-triage/. `arg` from the callback
     # data is always passed as the first positional arg.
     # is_state=True means the verb is a sticky sender-rule change (mute, trust,
     # vip) that should leave the keyboard tappable for follow-on actions.
@@ -5701,7 +5701,7 @@ class TelegramAdapter(BasePlatformAdapter):
             return
         script_name, extra_args, success_label, is_state_verb = entry
 
-        script_path = _Path.home() / ".thot" / "scripts" / "gmail-triage" / script_name
+        script_path = _Path.home() / ".naabiga" / "scripts" / "gmail-triage" / script_name
         if not script_path.exists():
             await query.answer(text=f"❌ {script_name} missing")
             logger.error("[%s] gmail-triage script missing: %s", self.name, script_path)
@@ -6933,7 +6933,7 @@ class TelegramAdapter(BasePlatformAdapter):
         # Telegram parses mentions server-side and emits MessageEntity objects
         # (type=mention for @username, type=text_mention for @FirstName targeting
         # a user without a public username). Those entities are authoritative:
-        # raw substring matches like "foo@thot_bot.example" are not mentions
+        # raw substring matches like "foo@naabiga_bot.example" are not mentions
         # (bug #12545). Entities also correctly handle @handles inside URLs, code
         # blocks, and quoted text, where a regex scan would over-match.
         for source_text, entities in _iter_sources():
@@ -6977,7 +6977,7 @@ class TelegramAdapter(BasePlatformAdapter):
     def _explicit_bot_mentions_exclude_self(self, message: Message) -> bool:
         """Return True when explicit bot handles target other bots, not this one.
 
-        Telegram groups can contain several Thot bot profiles. A message like
+        Telegram groups can contain several Naabiga bot profiles. A message like
         ``@bot3 hi @bot4`` must not wake ``@bot1`` through reply/wake-word
         fallbacks. Treat explicit bot-handle mentions as an exclusive routing
         hint: if at least one @...bot username is present and none matches this
@@ -7344,7 +7344,7 @@ class TelegramAdapter(BasePlatformAdapter):
         In some Telegram environments (groups, supergroups where the bot can
         see its own messages), getUpdates returns the bot's own outgoing
         messages as updates.  These must be filtered out so they are not
-        counted as incoming unread messages in the Thot inbox.
+        counted as incoming unread messages in the Naabiga inbox.
         """
         if not self._bot:
             return False
@@ -7380,7 +7380,7 @@ class TelegramAdapter(BasePlatformAdapter):
         # Filter out the bot's own messages (returned by getUpdates in some
         # environments like groups/supergroups where the bot can see its own
         # messages).  Without this, outbound messages are counted as incoming
-        # unread in the Thot inbox (#52363).
+        # unread in the Naabiga inbox (#52363).
         if self._is_own_message(message):
             return False
 
@@ -7456,7 +7456,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 if chat_id in self._forum_command_registered:
                     return
                 from telegram import BotCommand, BotCommandScopeChat
-                from thot_cli.commands import telegram_menu_commands, telegram_menu_max_commands
+                from naabiga_cli.commands import telegram_menu_commands, telegram_menu_max_commands
                 menu_commands, _ = telegram_menu_commands(max_commands=telegram_menu_max_commands())
                 bot_commands = [BotCommand(name, desc) for name, desc in menu_commands]
                 await self._bot.set_my_commands(bot_commands, scope=BotCommandScopeChat(chat_id=chat_id))
@@ -8132,8 +8132,8 @@ class TelegramAdapter(BasePlatformAdapter):
         recognized without a gateway restart.
         """
         try:
-            from thot_constants import get_thot_home
-            config_path = get_thot_home() / "config.yaml"
+            from naabiga_constants import get_naabiga_home
+            config_path = get_naabiga_home() / "config.yaml"
             if not config_path.exists():
                 return
 
@@ -8554,7 +8554,7 @@ class TelegramAdapter(BasePlatformAdapter):
 # replace the per-platform core touchpoints (the Platform.TELEGRAM branch in
 # gateway/run.py, the telegram_cfg YAML→env/extra block in gateway/config.py,
 # the _setup_telegram wizard + _PLATFORMS["telegram"] static dict in
-# thot_cli/{setup,gateway}.py, and the _send_telegram dispatch in
+# naabiga_cli/{setup,gateway}.py, and the _send_telegram dispatch in
 # tools/send_message_tool.py).  Telegram uses the generic token connected
 # check, so no is_connected override is needed.
 # ──────────────────────────────────────────────────────────────────────────
@@ -8565,7 +8565,7 @@ def _resolve_notifications_mode() -> str:
     config.yaml display.platforms.telegram.notifications, defaulting to
     'important'.  Mirrors the post-construction logic that used to live in
     gateway/run.py::_create_adapter()."""
-    mode = os.getenv("THOT_TELEGRAM_NOTIFICATIONS", "")
+    mode = os.getenv("NAABIGA_TELEGRAM_NOTIFICATIONS", "")
     if not mode:
         try:
             from gateway.config import load_gateway_config
@@ -8609,7 +8609,7 @@ def _is_connected(config) -> bool:
     """
     token = getattr(config, "token", None)
     if not token:
-        import thot_cli.gateway as gateway_mod
+        import naabiga_cli.gateway as gateway_mod
         token = gateway_mod.get_env_value("TELEGRAM_BOT_TOKEN") or ""
     return bool(str(token).strip())
 
@@ -8651,9 +8651,9 @@ def interactive_setup() -> None:
     Delegates to the existing CLI setup helper (manual @BotFather token
     validation, allowlist capture) via lazy import so the full wizard
     behavior is preserved without duplicating ~150 lines. Replaces the
-    _PLATFORMS["telegram"] static dict dispatch in thot_cli/gateway.py.
+    _PLATFORMS["telegram"] static dict dispatch in naabiga_cli/gateway.py.
     """
-    from thot_cli import setup as _setup_mod
+    from naabiga_cli import setup as _setup_mod
     _setup_mod._setup_telegram()
 
 
@@ -8755,7 +8755,7 @@ def _apply_yaml_config(yaml_cfg: dict, telegram_cfg: dict) -> dict | None:
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system."""
+    """Plugin entry point — called by the Naabiga plugin system."""
     ctx.register_platform(
         name="telegram",
         label="Telegram",
@@ -8763,7 +8763,7 @@ def register(ctx) -> None:
         check_fn=check_telegram_requirements,
         is_connected=_is_connected,
         required_env=["TELEGRAM_BOT_TOKEN"],
-        install_hint="pip install 'thot-agent[telegram]'",
+        install_hint="pip install 'naabiga-agent[telegram]'",
         setup_fn=interactive_setup,
         apply_yaml_config_fn=_apply_yaml_config,
         allowed_users_env="TELEGRAM_ALLOWED_USERS",

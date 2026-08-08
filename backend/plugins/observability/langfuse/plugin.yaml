@@ -1,10 +1,10 @@
 name: langfuse
 version: "1.0.0"
-description: "Optional Langfuse observability for Thot — traces conversations, LLM calls, and tool usage. Opt-in via `thot plugins enable observability/langfuse` or `thot tools → Langfuse Observability`."
+description: "Optional Langfuse observability for Naabiga — traces conversations, LLM calls, and tool usage. Opt-in via `naabiga plugins enable observability/langfuse` or `naabiga tools → Langfuse Observability`."
 author: NousResearch
 requires_env:
-  - THOT_LANGFUSE_PUBLIC_KEY
-  - THOT_LANGFUSE_SECRET_KEY
+  - NAABIGA_LANGFUSE_PUBLIC_KEY
+  - NAABIGA_LANGFUSE_SECRET_KEY
 hooks:
   - pre_api_request
   - post_api_request

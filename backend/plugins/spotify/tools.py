@@ -1,10 +1,10 @@
-"""Native Spotify tools for Thot (registered via plugins/spotify)."""
+"""Native Spotify tools for Naabiga (registered via plugins/spotify)."""
 
 from __future__ import annotations
 
 from typing import Any, List
 
-from thot_cli.auth import get_auth_status
+from naabiga_cli.auth import get_auth_status
 from plugins.spotify.client import (
     SpotifyAPIError,
     SpotifyAuthRequiredError,

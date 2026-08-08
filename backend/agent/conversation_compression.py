@@ -212,7 +212,7 @@ def check_compression_model_feasibility(agent: Any) -> None:
                 msg = (
                     "⚠ No auxiliary LLM provider configured — context "
                     "compression will drop middle turns without a summary. "
-                    "Run `thot setup` or set OPENROUTER_API_KEY."
+                    "Run `naabiga setup` or set OPENROUTER_API_KEY."
                 )
             agent._compression_warning = msg
             agent._emit_status(msg)
@@ -255,7 +255,7 @@ def check_compression_model_feasibility(agent: Any) -> None:
             raise ValueError(
                 f"Auxiliary compression model {aux_model} has a context "
                 f"window of {aux_context:,} tokens, which is below the "
-                f"minimum {MINIMUM_CONTEXT_LENGTH:,} required by Thot "
+                f"minimum {MINIMUM_CONTEXT_LENGTH:,} required by Naabiga "
                 f"Agent.  Choose a compression model with at least "
                 f"{MINIMUM_CONTEXT_LENGTH // 1000}K context (set "
                 f"auxiliary.compression.model in config.yaml), or set "
@@ -466,10 +466,10 @@ def compress_context(
         no-op via ``len(returned) == len(input)`` and stop the retry loop.
     """
     # Codex app-server sessions: the codex agent owns the real thread context;
-    # Thot' summarizer would only rewrite a local mirror without shrinking
+    # Naabiga' summarizer would only rewrite a local mirror without shrinking
     # the actual thread (#36801). Route compaction to the app server's own
     # thread/compact mechanism. Behavior is controlled by
-    # ``compression.codex_app_server_auto`` (native|thot|off).
+    # ``compression.codex_app_server_auto`` (native|naabiga|off).
     if getattr(agent, "api_mode", None) == "codex_app_server":
         return _compress_context_via_codex_app_server(
             agent,
@@ -543,7 +543,7 @@ def compress_context(
     # Probe whether the lock subsystem is actually available on this
     # SessionDB instance.  A process running mismatched module versions
     # (e.g. ``conversation_compression.py`` reloaded after a pull but the
-    # long-lived ``thot_state.SessionDB`` class still bound to the
+    # long-lived ``naabiga_state.SessionDB`` class still bound to the
     # pre-#34351 version in memory) has the call site but not the method.
     # In that case ``try_acquire_compression_lock`` raises AttributeError —
     # NOT a ``sqlite3.Error`` — so the method's own fail-open guard never
@@ -579,7 +579,7 @@ def compress_context(
                     "compression lock subsystem unavailable for session=%s "
                     "(%s: %s) — proceeding without lock. This usually means a "
                     "stale in-memory module after an update; restart the "
-                    "process (or `thot update`) to resync.",
+                    "process (or `naabiga update`) to resync.",
                     _lock_sid, type(_lock_err).__name__, _lock_err,
                 )
             _lock_acquired = True  # treat as acquired-but-unlocked; proceed
@@ -768,18 +768,18 @@ def compress_context(
 
                         set_current_session_id(agent.session_id)
                     except Exception:
-                        os.environ["THOT_SESSION_ID"] = agent.session_id
+                        os.environ["NAABIGA_SESSION_ID"] = agent.session_id
                     # The gateway/tools session context (ContextVar + env) and the
                     # logging session context are SEPARATE mechanisms. The call above
                     # moves the former; the ``[session_id]`` tag on log lines comes
-                    # from ``thot_logging._session_context`` (set once per turn in
+                    # from ``naabiga_logging._session_context`` (set once per turn in
                     # conversation_loop.py). Without this, post-rotation log lines in
                     # the same turn keep the STALE old id while the message/DB/gateway
                     # state carry the new one — breaking log correlation exactly at the
                     # compaction boundary (see #34089). Guarded separately so a logging
                     # failure can never regress the routing update above.
                     try:
-                        from thot_logging import set_session_context
+                        from naabiga_logging import set_session_context
 
                         set_session_context(agent.session_id)
                     except Exception:
@@ -788,7 +788,7 @@ def compress_context(
                     try:
                         agent._session_db.create_session(
                             session_id=agent.session_id,
-                            source=agent.platform or os.environ.get("THOT_SESSION_SOURCE", "cli"),
+                            source=agent.platform or os.environ.get("NAABIGA_SESSION_SOURCE", "cli"),
                             model=agent.model,
                             model_config=agent._session_init_model_config,
                             parent_session_id=old_session_id,
@@ -813,9 +813,9 @@ def compress_context(
                             from gateway.session_context import set_current_session_id
                             set_current_session_id(agent.session_id)
                         except Exception:
-                            os.environ["THOT_SESSION_ID"] = agent.session_id
+                            os.environ["NAABIGA_SESSION_ID"] = agent.session_id
                         try:
-                            from thot_logging import set_session_context
+                            from naabiga_logging import set_session_context
                             set_session_context(agent.session_id)
                         except Exception:
                             pass
@@ -837,7 +837,7 @@ def compress_context(
                     # per-session lookup with no parent walk, so without this an
                     # active goal silently dies at the boundary (#33618).
                     try:
-                        from thot_cli.goals import migrate_goal_to_session
+                        from naabiga_cli.goals import migrate_goal_to_session
                         migrate_goal_to_session(old_session_id, agent.session_id, reason="compression")
                     except Exception as _goal_err:
                         logger.debug("Could not migrate goal on compression: %s", _goal_err)
@@ -878,9 +878,9 @@ def compress_context(
         _boundary_parent = _old_sid or agent.session_id or ""
 
         # Notify the context engine that a compaction boundary occurred. Plugin
-        # engines (e.g. thot-lcm) use boundary_reason="compression" to preserve
+        # engines (e.g. naabiga-lcm) use boundary_reason="compression" to preserve
         # DAG lineage / checkpoint per-session state across the boundary instead of
-        # re-initializing fresh. See thot-lcm#68. Built-in ContextCompressor
+        # re-initializing fresh. See naabiga-lcm#68. Built-in ContextCompressor
         # ignores kwargs. Fires in BOTH modes: rotation passes old→new ids; in-place
         # passes the SAME id (the boundary is real even though the id didn't move).
         try:
@@ -997,17 +997,17 @@ def _compress_context_via_codex_app_server(
 ) -> Tuple[list, str]:
     """Route compaction to Codex app-server for Codex-owned threads.
 
-    Thot' normal compressor rewrites the local OpenAI-style transcript.
+    Naabiga' normal compressor rewrites the local OpenAI-style transcript.
     That does not shrink the actual Codex app-server thread context. For this
-    runtime, ask Codex to compact its own thread and keep Thot' transcript
+    runtime, ask Codex to compact its own thread and keep Naabiga' transcript
     unchanged.
     """
     auto_mode = str(
         getattr(agent, "codex_app_server_auto_compaction", "native") or "native"
     ).lower()
-    if auto_mode not in {"native", "thot", "off"}:
+    if auto_mode not in {"native", "naabiga", "off"}:
         auto_mode = "native"
-    if not force and auto_mode != "thot":
+    if not force and auto_mode != "naabiga":
         logger.info(
             "codex app-server compaction skipped: mode=%s force=false "
             "(session=%s messages=%d tokens=~%s)",
@@ -1219,7 +1219,7 @@ def try_shrink_image_parts_in_messages(
                 "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/bmp": ".bmp",
             }.get(mime, ".jpg")
             tmp = tempfile.NamedTemporaryFile(
-                prefix="thot_shrink_", suffix=suffix, delete=False,
+                prefix="naabiga_shrink_", suffix=suffix, delete=False,
             )
             try:
                 tmp.write(raw)

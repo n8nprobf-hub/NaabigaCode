@@ -14,7 +14,7 @@ so no individual source can get it wrong:
 * provenance: which source supplied every applied var
 
 The single entry point for startup is :func:`apply_all`, called from
-``thot_cli.env_loader._apply_external_secret_sources()``.
+``naabiga_cli.env_loader._apply_external_secret_sources()``.
 
 Plugins register additional sources via
 ``PluginContext.register_secret_source()`` which lands in
@@ -113,7 +113,7 @@ def register_source(source: SecretSource, *, replace: bool = False) -> bool:
     if getattr(source, "api_version", None) != SECRET_SOURCE_API_VERSION:
         logger.warning(
             "Ignoring secret source '%s': built against secret-source API v%s, "
-            "this Thot speaks v%s",
+            "this Naabiga speaks v%s",
             name, getattr(source, "api_version", "?"), SECRET_SOURCE_API_VERSION,
         )
         return False
@@ -196,7 +196,7 @@ def _fetch_with_timeout(
     blows its budget is reported as ``TIMEOUT`` and its (eventual)
     result is discarded.  The thread itself may linger until process
     exit — acceptable for a startup-only path, and strictly better than
-    an unbounded hang on every ``thot`` invocation.
+    an unbounded hang on every ``naabiga`` invocation.
     """
     timeout = source.fetch_timeout_seconds(cfg)
     executor = concurrent.futures.ThreadPoolExecutor(

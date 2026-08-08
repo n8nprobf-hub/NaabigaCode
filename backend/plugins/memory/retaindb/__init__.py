@@ -12,7 +12,7 @@ Features:
 - Shared file store tools (upload, list, read, ingest, delete)
 - Explicit memory tools (profile, search, context, remember, forget)
 
-Config (env vars or thot config.yaml under retaindb:):
+Config (env vars or naabiga config.yaml under retaindb:):
   RETAINDB_API_KEY     — API key (required)
   RETAINDB_BASE_URL    — API endpoint (default: https://api.retaindb.com)
   RETAINDB_PROJECT     — Project identifier (optional — defaults to "default")
@@ -188,7 +188,7 @@ class _Client:
         h = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "x-sdk-runtime": "thot-plugin",
+            "x-sdk-runtime": "naabiga-plugin",
         }
         if path.startswith(("/v1/memory", "/v1/context")):
             h["X-API-Key"] = token
@@ -287,7 +287,7 @@ class _Client:
         import requests
         url = f"{self.base_url}/v1/files"
         token = self.api_key.replace("Bearer ", "").strip()
-        headers = {"Authorization": f"Bearer {token}", "x-sdk-runtime": "thot-plugin"}
+        headers = {"Authorization": f"Bearer {token}", "x-sdk-runtime": "naabiga-plugin"}
         fields = {"path": remote_path, "scope": scope.upper()}
         if project_id:
             fields["project_id"] = project_id
@@ -308,7 +308,7 @@ class _Client:
         import requests
         token = self.api_key.replace("Bearer ", "").strip()
         url = f"{self.base_url}/v1/files/{quote(file_id, safe='')}/content"
-        resp = requests.get(url, headers={"Authorization": f"Bearer {token}", "x-sdk-runtime": "thot-plugin"}, timeout=30, allow_redirects=True)
+        resp = requests.get(url, headers={"Authorization": f"Bearer {token}", "x-sdk-runtime": "naabiga-plugin"}, timeout=30, allow_redirects=True)
         resp.raise_for_status()
         return resp.content
 
@@ -458,7 +458,7 @@ class RetainDBMemoryProvider(MemoryProvider):
         self._queue: _WriteQueue | None = None
         self._user_id = "default"
         self._session_id = ""
-        self._agent_id = "thot"
+        self._agent_id = "naabiga"
         self._lock = threading.Lock()
 
         # Prefetch caches
@@ -491,28 +491,28 @@ class RetainDBMemoryProvider(MemoryProvider):
         api_key = os.environ.get("RETAINDB_API_KEY", "")
         base_url = re.sub(r"/+$", "", os.environ.get("RETAINDB_BASE_URL", _DEFAULT_BASE_URL))
 
-        # Project resolution: RETAINDB_PROJECT > thot-<profile> > "default"
+        # Project resolution: RETAINDB_PROJECT > naabiga-<profile> > "default"
         # If unset, the API auto-creates and uses the "default" project — no config required.
         explicit = os.environ.get("RETAINDB_PROJECT")
         if explicit:
             project = explicit
         else:
-            thot_home = str(kwargs.get("thot_home", ""))
-            profile_name = os.path.basename(thot_home) if thot_home else ""
-            project = f"thot-{profile_name}" if (profile_name and profile_name not in {"", ".thot"}) else "default"
+            naabiga_home = str(kwargs.get("naabiga_home", ""))
+            profile_name = os.path.basename(naabiga_home) if naabiga_home else ""
+            project = f"naabiga-{profile_name}" if (profile_name and profile_name not in {"", ".naabiga"}) else "default"
 
         self._client = _Client(api_key, base_url, project)
         self._session_id = session_id
         self._user_id = kwargs.get("user_id", "default") or "default"
-        self._agent_id = kwargs.get("agent_id", "thot") or "thot"
+        self._agent_id = kwargs.get("agent_id", "naabiga") or "naabiga"
 
-        from thot_constants import get_thot_home
-        thot_home_path = get_thot_home()
-        db_path = thot_home_path / "retaindb_queue.db"
+        from naabiga_constants import get_naabiga_home
+        naabiga_home_path = get_naabiga_home()
+        db_path = naabiga_home_path / "retaindb_queue.db"
         self._queue = _WriteQueue(self._client, db_path)
 
         # Seed agent identity from SOUL.md in background
-        soul_path = thot_home_path / "SOUL.md"
+        soul_path = naabiga_home_path / "SOUL.md"
         if soul_path.exists():
             soul_content = soul_path.read_text(encoding="utf-8", errors="replace").strip()
             if soul_content:

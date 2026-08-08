@@ -1,5 +1,5 @@
 """
-LINE Messaging API platform adapter for Thot Agent.
+LINE Messaging API platform adapter for Naabiga Agent.
 
 A bundled platform plugin that runs an aiohttp webhook server, accepts LINE
 webhook events (signature-verified), and relays messages to/from the agent
@@ -41,7 +41,7 @@ Synthesis credits
 -----------------
 
 This file is a synthesis of seven open community PRs adding LINE support
-to Thot Agent. It deliberately ports the *strongest* idea from each into
+to Naabiga Agent. It deliberately ports the *strongest* idea from each into
 a single plugin-form module that requires zero core edits:
 
 * PR #18153 (leepoweii)   — Template Buttons postback cache state machine,
@@ -1277,7 +1277,7 @@ class LineAdapter(BasePlatformAdapter):
         from trusted internal code, we recheck the resolved path against
         an allowed-roots set before serving. Sources allowed:
         ``tempfile.gettempdir()``, ``/tmp`` (which resolves to
-        ``/private/tmp`` on macOS), and ``THOT_HOME``. PR #8398.
+        ``/private/tmp`` on macOS), and ``NAABIGA_HOME``. PR #8398.
         """
         from aiohttp import web
 
@@ -1296,15 +1296,15 @@ class LineAdapter(BasePlatformAdapter):
             return web.Response(status=404, text="not found")
 
         try:
-            from thot_constants import get_thot_home
-            thot_home = Path(get_thot_home()).resolve()
+            from naabiga_constants import get_naabiga_home
+            naabiga_home = Path(get_naabiga_home()).resolve()
         except Exception:
-            thot_home = Path.home().joinpath(".thot").resolve()
+            naabiga_home = Path.home().joinpath(".naabiga").resolve()
 
         allowed_roots = {
             Path(tempfile.gettempdir()).resolve(),
             Path("/tmp").resolve(),  # → /private/tmp on macOS
-            thot_home,
+            naabiga_home,
         }
         resolved = path.resolve()
         if not any(_is_relative_to(resolved, r) for r in allowed_roots):
@@ -1502,14 +1502,14 @@ def validate_config(config) -> bool:
 
 
 def is_connected(config) -> bool:
-    """Surface in ``thot status`` even before the adapter is instantiated."""
+    """Surface in ``naabiga status`` even before the adapter is instantiated."""
     return validate_config(config)
 
 
 def _env_enablement() -> Optional[Dict[str, Any]]:
     """Auto-seed PlatformConfig.extra from env-only setups.
 
-    Lets ``thot status`` reflect a LINE configuration that lives entirely
+    Lets ``naabiga status`` reflect a LINE configuration that lives entirely
     in ``.env`` without a ``platforms.line`` block in ``config.yaml``.
     Mirrors the IRC plugin's pattern.
     """
@@ -1576,10 +1576,10 @@ async def _standalone_send(
 
 
 def interactive_setup() -> None:
-    """Minimal stdin wizard for ``thot setup line``.
+    """Minimal stdin wizard for ``naabiga setup line``.
 
     Mirrors the irc/teams style: prompts for the two required vars, plus
-    one optional public URL. Writes to ``~/.thot/.env`` via ``thot_cli.config``.
+    one optional public URL. Writes to ``~/.naabiga/.env`` via ``naabiga_cli.config``.
     """
     print()
     print("LINE Messaging API setup")
@@ -1589,9 +1589,9 @@ def interactive_setup() -> None:
     print()
 
     try:
-        from thot_cli.config import get_env_var, set_env_var
+        from naabiga_cli.config import get_env_var, set_env_var
     except ImportError:
-        print("thot_cli.config not available; set LINE_* vars manually in ~/.thot/.env")
+        print("naabiga_cli.config not available; set LINE_* vars manually in ~/.naabiga/.env")
         return
 
     def _prompt(var: str, prompt: str, *, secret: bool = False) -> None:
@@ -1599,7 +1599,7 @@ def interactive_setup() -> None:
         suffix = " [keep current]" if existing else ""
         try:
             if secret:
-                from thot_cli.secret_prompt import masked_secret_prompt
+                from naabiga_cli.secret_prompt import masked_secret_prompt
                 value = masked_secret_prompt(f"{prompt}{suffix}: ")
             else:
                 value = input(f"{prompt}{suffix}: ").strip()
@@ -1618,7 +1618,7 @@ def interactive_setup() -> None:
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system at startup."""
+    """Plugin entry point — called by the Naabiga plugin system at startup."""
     ctx.register_platform(
         name="line",
         label="LINE",

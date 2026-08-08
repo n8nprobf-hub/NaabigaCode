@@ -22,11 +22,11 @@ The ``spectrum-ts`` SDK (run by the Node sidecar) authenticates to Spectrum
 Cloud with ``(id, projectSecret)`` — the same ``id`` used in Dashboard API
 paths — which we persist as ``PHOTON_PROJECT_ID`` for the runtime.
 
-Credential storage mirrors every other Thot channel:
+Credential storage mirrors every other Naabiga channel:
 
-    * runtime SDK creds  -> ``~/.thot/.env``  (``PHOTON_PROJECT_ID`` =
+    * runtime SDK creds  -> ``~/.naabiga/.env``  (``PHOTON_PROJECT_ID`` =
       project id, ``PHOTON_PROJECT_SECRET``) via ``save_env_value``
-    * management metadata -> ``~/.thot/auth.json`` under
+    * management metadata -> ``~/.naabiga/auth.json`` under
       ``credential_pool.photon`` (device token),
       ``credential_pool.photon_project`` (dashboard id, spectrum id, name), and
       ``credential_pool.photon_user`` (operator number + assigned text line)
@@ -48,7 +48,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 try:
     import httpx
-except ImportError:  # pragma: no cover - httpx is a thot dependency
+except ImportError:  # pragma: no cover - httpx is a naabiga dependency
     httpx = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
@@ -64,15 +64,15 @@ class PhotonDashboardAuthError(RuntimeError):
 # endpoint — an unregistered client_id is rejected with
 # `400 {"error":"invalid_client"}`.  Use Photon's published CLI device
 # client (matches `CLI_CLIENT_ID` in photon-hq/cli) until the dashboard API
-# registers Thot as its own client_id.
+# registers Naabiga as its own client_id.
 DEFAULT_CLIENT_ID = "photon-cli"
 DEFAULT_SCOPE = "openid profile email"
 
 DEFAULT_DASHBOARD_HOST = "https://app.photon.codes"
 DEFAULT_SPECTRUM_HOST = "https://spectrum.photon.codes"
 
-# Default name of the project Thot provisions for the operator.
-DEFAULT_PROJECT_NAME = "Thot Agent"
+# Default name of the project Naabiga provisions for the operator.
+DEFAULT_PROJECT_NAME = "Naabiga Agent"
 
 # Polling defaults per RFC 8628.  Photon overrides via `interval` /
 # `expires_in` in the device-code response — those win.
@@ -83,15 +83,15 @@ E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 
 
 # ---------------------------------------------------------------------------
-# auth.json helpers — share the file with the rest of thot-agent.
+# auth.json helpers — share the file with the rest of naabiga-agent.
 
 def _auth_json_path() -> Path:
-    """Resolve ``~/.thot/auth.json`` honouring the active Thot profile."""
+    """Resolve ``~/.naabiga/auth.json`` honouring the active Naabiga profile."""
     try:
-        from thot_constants import get_thot_home
-        return Path(get_thot_home()) / "auth.json"
+        from naabiga_constants import get_naabiga_home
+        return Path(get_naabiga_home()) / "auth.json"
     except Exception:
-        return Path(os.path.expanduser("~/.thot")) / "auth.json"
+        return Path(os.path.expanduser("~/.naabiga")) / "auth.json"
 
 
 def _load_auth() -> Dict[str, Any]:
@@ -146,7 +146,7 @@ def store_photon_token(token: str) -> None:
 def load_project_credentials() -> Tuple[Optional[str], Optional[str]]:
     """Return the runtime SDK creds ``(spectrum_project_id, project_secret)``.
 
-    Precedence: process env (``~/.thot/.env`` is loaded into the gateway's
+    Precedence: process env (``~/.naabiga/.env`` is loaded into the gateway's
     environment at startup) wins, then ``auth.json`` for offline / status
     use.  This is the pair the Node sidecar feeds to ``spectrum-ts``; the id
     is the unified project id (dashboard id == spectrumProjectId).
@@ -198,7 +198,7 @@ def store_project_credentials(
 ) -> None:
     """Persist project credentials to both .env (runtime) and auth.json (mgmt).
 
-    The runtime SDK creds land in ``~/.thot/.env`` via the same
+    The runtime SDK creds land in ``~/.naabiga/.env`` via the same
     ``save_env_value`` helper every other channel uses, so the gateway picks
     them up from the environment with zero adapter changes.  A copy of the
     non-secret ids (plus the secret, for offline ``status``) is written to
@@ -245,16 +245,16 @@ def store_user_numbers(
 
 
 def _persist_runtime_env(spectrum_project_id: str, project_secret: str) -> None:
-    """Write the SDK creds to ``~/.thot/.env`` (canonical runtime store).
+    """Write the SDK creds to ``~/.naabiga/.env`` (canonical runtime store).
 
     Isolated in its own helper so the secret value flows straight into
     ``save_env_value`` without ever being bound to a printable local in a
     caller — same CodeQL-clean-flow rationale as the rest of this module.
     """
     try:
-        from thot_cli.config import save_env_value
+        from naabiga_cli.config import save_env_value
     except ImportError:
-        logger.warning("photon: thot_cli.config unavailable — skipping .env write")
+        logger.warning("photon: naabiga_cli.config unavailable — skipping .env write")
         return
     try:
         save_env_value("PHOTON_PROJECT_ID", spectrum_project_id)
@@ -916,7 +916,7 @@ def _configured_operator_phone() -> Optional[str]:
 
 def _get_config_env_value(key: str) -> Optional[str]:
     try:
-        from thot_cli.config import get_env_value
+        from naabiga_cli.config import get_env_value
     except Exception:
         return os.getenv(key)
     return get_env_value(key)
@@ -986,7 +986,7 @@ def print_credential_summary(emit: Any = print) -> None:
     labels: Dict[str, str] = {}
     labels["device_token"] = (
         "✓ stored" if load_photon_token()
-        else "✗ missing (run `thot photon setup`)"
+        else "✗ missing (run `naabiga photon setup`)"
     )
     sid, sec = load_project_credentials()
     # Dashboard id and Spectrum id are the same value now (ids unified), so
@@ -995,10 +995,10 @@ def print_credential_summary(emit: Any = print) -> None:
     labels["project_key"] = "✓ stored" if sec else "✗ missing"
     phone, assigned = load_user_numbers()
     labels["phone_number"] = (
-        phone if phone else "✗ missing (run `thot photon setup --phone ...`)"
+        phone if phone else "✗ missing (run `naabiga photon setup --phone ...`)"
     )
     labels["assigned_phone_number"] = (
-        assigned if assigned else "✗ missing (run `thot photon setup`)"
+        assigned if assigned else "✗ missing (run `naabiga photon setup`)"
     )
 
     rows = [
@@ -1018,7 +1018,7 @@ def credential_summary() -> Dict[str, str]:
     def _present_token() -> str:
         return (
             "✓ stored" if load_photon_token()
-            else "✗ missing (run `thot photon setup`)"
+            else "✗ missing (run `naabiga photon setup`)"
         )
 
     def _present_project_id() -> str:
@@ -1031,11 +1031,11 @@ def credential_summary() -> Dict[str, str]:
 
     def _present_phone() -> str:
         phone, _assigned = load_user_numbers()
-        return phone or "✗ missing (run `thot photon setup --phone ...`)"
+        return phone or "✗ missing (run `naabiga photon setup --phone ...`)"
 
     def _present_assigned_phone() -> str:
         _phone, assigned = load_user_numbers()
-        return assigned or "✗ missing (run `thot photon setup`)"
+        return assigned or "✗ missing (run `naabiga photon setup`)"
 
     return {
         "device_token": _present_token(),

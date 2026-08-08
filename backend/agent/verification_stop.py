@@ -104,9 +104,9 @@ def _session_is_messaging_surface() -> bool:
     """Return whether this turn is delivered over a human messaging channel.
 
     The gateway binds the platform value (e.g. ``telegram``) to
-    ``THOT_SESSION_PLATFORM``; the CLI and TUI set ``THOT_SESSION_SOURCE``
+    ``NAABIGA_SESSION_PLATFORM``; the CLI and TUI set ``NAABIGA_SESSION_SOURCE``
     (e.g. ``cli``, ``tui``) instead. Both are consulted via the session-context
-    helper (with an ``os.environ`` fallback), alongside the ``THOT_PLATFORM``
+    helper (with an ``os.environ`` fallback), alongside the ``NAABIGA_PLATFORM``
     override, matching the sibling platform resolution in
     ``agent/skill_commands.py`` and ``agent/prompt_builder.py``. A turn is a
     messaging surface when a resolved identity is present and is not a known
@@ -116,15 +116,15 @@ def _session_is_messaging_surface() -> bool:
         from gateway.session_context import get_session_env
 
         platform = (
-            os.getenv("THOT_PLATFORM")
-            or get_session_env("THOT_SESSION_PLATFORM", "")
+            os.getenv("NAABIGA_PLATFORM")
+            or get_session_env("NAABIGA_SESSION_PLATFORM", "")
         )
-        source = get_session_env("THOT_SESSION_SOURCE", "")
+        source = get_session_env("NAABIGA_SESSION_SOURCE", "")
     except Exception:
-        platform = os.getenv("THOT_PLATFORM", "") or os.environ.get(
-            "THOT_SESSION_PLATFORM", ""
+        platform = os.getenv("NAABIGA_PLATFORM", "") or os.environ.get(
+            "NAABIGA_SESSION_PLATFORM", ""
         )
-        source = os.environ.get("THOT_SESSION_SOURCE", "")
+        source = os.environ.get("NAABIGA_SESSION_SOURCE", "")
     for identity in (platform, source):
         identity = str(identity or "").strip().lower()
         if identity and identity not in _NON_MESSAGING_SESSION_SURFACES:
@@ -135,7 +135,7 @@ def _session_is_messaging_surface() -> bool:
 def verify_on_stop_enabled(config: dict[str, Any] | None = None) -> bool:
     """Return whether edit -> verify-before-finish behavior is enabled.
 
-    Precedence: an explicit ``THOT_VERIFY_ON_STOP`` env var wins, then an
+    Precedence: an explicit ``NAABIGA_VERIFY_ON_STOP`` env var wins, then an
     explicit ``agent.verify_on_stop`` config value. The config default is
     ``"auto"`` (see ``DEFAULT_CONFIG``) — surface-aware: ON for interactive
     coding surfaces (CLI, TUI, desktop) and programmatic callers, OFF for
@@ -144,12 +144,12 @@ def verify_on_stop_enabled(config: dict[str, Any] | None = None) -> bool:
     bool forces the behavior in either direction. A missing or unrecognized
     value falls back to the surface-aware ``"auto"`` default.
     """
-    env = os.environ.get("THOT_VERIFY_ON_STOP")
+    env = os.environ.get("NAABIGA_VERIFY_ON_STOP")
     if env is not None:
         return env.strip().lower() not in {"0", "false", "no", "off"}
     if config is None:
         try:
-            from thot_cli.config import load_config
+            from naabiga_cli.config import load_config
 
             config = load_config()
         except Exception:
@@ -293,7 +293,7 @@ def build_verify_on_stop_nudge(
         command_instruction = (
             "No canonical test/lint/build command was detected. Create a focused "
             f"temporary verification script under `{temp_dir}` using an OS-safe "
-            "`tempfile` path with a `thot-verify-` filename prefix, run it "
+            "`tempfile` path with a `naabiga-verify-` filename prefix, run it "
             "against the changed behavior, clean it up when possible, and "
             "summarize it explicitly as ad-hoc verification rather than suite "
             "green."

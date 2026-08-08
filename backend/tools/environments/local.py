@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from tools.environments.base import BaseEnvironment, _pipe_stdin
-from thot_cli._subprocess_compat import windows_hide_flags
+from naabiga_cli._subprocess_compat import windows_hide_flags
 
 _IS_WINDOWS = platform.system() == "Windows"
 
@@ -91,12 +91,12 @@ def _resolve_safe_cwd(cwd: str) -> str:
     return tempfile.gettempdir()
 
 
-# Thot-internal env vars that should NOT leak into terminal subprocesses.
-_THOT_PROVIDER_ENV_FORCE_PREFIX = "_THOT_FORCE_"
+# Naabiga-internal env vars that should NOT leak into terminal subprocesses.
+_NAABIGA_PROVIDER_ENV_FORCE_PREFIX = "_NAABIGA_FORCE_"
 
-# Thot-managed AWS *inference* credentials for ``auth_type="aws_sdk"``
+# Naabiga-managed AWS *inference* credentials for ``auth_type="aws_sdk"``
 # providers (Bedrock).  Scoped DELIBERATELY NARROW: this lists only the
-# Bedrock-specific bearer token, which is a Thot inference secret exactly
+# Bedrock-specific bearer token, which is a Naabiga inference secret exactly
 # analogous to ``OPENAI_API_KEY`` — nobody drives the ``aws``/``terraform``/
 # ``boto3`` toolchain off it, so stripping it from terminal/execute_code
 # subprocesses costs no user capability.
@@ -121,7 +121,7 @@ def _build_provider_env_blocklist() -> frozenset:
     blocked: set[str] = set()
 
     try:
-        from thot_cli.auth import PROVIDER_REGISTRY
+        from naabiga_cli.auth import PROVIDER_REGISTRY
         for pconfig in PROVIDER_REGISTRY.values():
             blocked.update(pconfig.api_key_env_vars)
             if pconfig.auth_type == "aws_sdk":
@@ -132,7 +132,7 @@ def _build_provider_env_blocklist() -> frozenset:
         pass
 
     try:
-        from thot_cli.config import OPTIONAL_ENV_VARS
+        from naabiga_cli.config import OPTIONAL_ENV_VARS
         for name, metadata in OPTIONAL_ENV_VARS.items():
             category = metadata.get("category")
             if category in {"tool", "messaging"}:
@@ -198,7 +198,7 @@ def _build_provider_env_blocklist() -> frozenset:
         "EMAIL_SMTP_HOST",
         "EMAIL_HOME_ADDRESS",
         "EMAIL_HOME_ADDRESS_NAME",
-        "THOT_DASHBOARD_SESSION_TOKEN",
+        "NAABIGA_DASHBOARD_SESSION_TOKEN",
         "GATEWAY_ALLOWED_USERS",
         "GH_TOKEN",
         "GITHUB_APP_ID",
@@ -213,8 +213,8 @@ def _build_provider_env_blocklist() -> frozenset:
     })
     # CLAUDE_CODE_OAUTH_TOKEN is deliberately NOT stripped.  It is set and
     # owned by the user's Claude Code install (subscription OAuth), not a
-    # Thot-managed inference credential — Claude subscription auth is not a
-    # working Thot provider path.  Stripping it broke agent-spawned
+    # Naabiga-managed inference credential — Claude subscription auth is not a
+    # working Naabiga provider path.  Stripping it broke agent-spawned
     # ``claude`` CLIs: the child fell through to the shared macOS Keychain /
     # ``~/.claude/.credentials.json`` store and, on auth failure, cleared it,
     # logging the user out of their interactive Claude sessions (#55878).
@@ -224,25 +224,25 @@ def _build_provider_env_blocklist() -> frozenset:
     return frozenset(blocked)
 
 
-_THOT_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
+_NAABIGA_PROVIDER_ENV_BLOCKLIST = _build_provider_env_blocklist()
 
 # Active-virtualenv markers that must NOT leak into terminal subprocesses.
 # The gateway runs inside its own venv, so its process environment carries
 # VIRTUAL_ENV (and possibly CONDA_PREFIX). If those leak into commands the
 # agent runs against OTHER Python projects, tools like ``uv``/``poetry`` treat
 # the inherited value as the active environment and build/sync that other
-# project's dependencies into the Thot venv path instead of the project's own
-# ``.venv`` — silently clobbering the Thot environment (e.g. a project pinned
+# project's dependencies into the Naabiga venv path instead of the project's own
+# ``.venv`` — silently clobbering the Naabiga environment (e.g. a project pinned
 # to a different Python version overwrites it and breaks the gateway). The
-# Thot venv stays reachable via PATH (its bin dir is first), so stripping
+# Naabiga venv stays reachable via PATH (its bin dir is first), so stripping
 # these markers is safe and only prevents the cross-project clobber (#23473).
 _ACTIVE_VENV_MARKER_VARS = ("VIRTUAL_ENV", "CONDA_PREFIX")
 
 
-def _is_thot_internal_secret(key: str) -> bool:
-    """Return True for Thot-internal secrets injected under *dynamic* names.
+def _is_naabiga_internal_secret(key: str) -> bool:
+    """Return True for Naabiga-internal secrets injected under *dynamic* names.
 
-    ``_THOT_PROVIDER_ENV_BLOCKLIST`` is name-based and derived from the
+    ``_NAABIGA_PROVIDER_ENV_BLOCKLIST`` is name-based and derived from the
     provider/tool registries, but the gateway and CLI also inject secrets into
     ``os.environ`` at runtime under names no static registry knows about:
 
@@ -264,10 +264,10 @@ def _is_thot_internal_secret(key: str) -> bool:
     ``KEY`` / ``SECRET`` / ``TOKEN``; the terminal backend's narrower name-based
     blocklist did not, which is the leak this predicate closes.
 
-    This is the single source of truth for "Thot-internal dynamic secret"
+    This is the single source of truth for "Naabiga-internal dynamic secret"
     across every spawn path — the terminal ``_make_run_env`` /
     ``_sanitize_subprocess_env`` filters, the Docker passthrough filter, and the
-    non-terminal :func:`thot_subprocess_env` helper all call it, so the
+    non-terminal :func:`naabiga_subprocess_env` helper all call it, so the
     dynamic patterns are stripped **unconditionally** regardless of
     ``env_passthrough`` skill registration or ``inherit_credentials``. Nothing
     a model-driving CLI legitimately needs matches these patterns.
@@ -284,14 +284,14 @@ def _is_thot_internal_secret(key: str) -> bool:
     return False
 
 
-def _inject_context_thot_home(env: dict) -> None:
-    """Bridge the context-local Thot home override into subprocess env."""
+def _inject_context_naabiga_home(env: dict) -> None:
+    """Bridge the context-local Naabiga home override into subprocess env."""
     try:
-        from thot_constants import get_thot_home_override
+        from naabiga_constants import get_naabiga_home_override
 
-        value = get_thot_home_override()
+        value = get_naabiga_home_override()
         if value:
-            env["THOT_HOME"] = value
+            env["NAABIGA_HOME"] = value
     except Exception:
         pass
 
@@ -300,7 +300,7 @@ def _inject_session_context_env(env: dict) -> None:
     """Bridge gateway session ContextVars into a subprocess environment dict.
 
     ContextVars don't propagate to child processes, so the live session vars
-    (THOT_SESSION_*) are bridged onto the child env here.
+    (NAABIGA_SESSION_*) are bridged onto the child env here.
 
     🔴 Cross-session leak guard. The session vars also have a process-global
     os.environ mirror (written last-writer-wins as a CLI/cron fallback, never
@@ -344,7 +344,7 @@ def _inject_session_context_env(env: dict) -> None:
 
 
 def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = None) -> dict:
-    """Filter Thot-managed secrets from a subprocess environment."""
+    """Filter Naabiga-managed secrets from a subprocess environment."""
     try:
         from tools.env_passthrough import is_env_passthrough as _is_passthrough
     except Exception:
@@ -353,27 +353,27 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
     sanitized: dict[str, str] = {}
 
     for key, value in (base_env or {}).items():
-        if key.startswith(_THOT_PROVIDER_ENV_FORCE_PREFIX):
+        if key.startswith(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):
             continue
-        if _is_thot_internal_secret(key):
+        if _is_naabiga_internal_secret(key):
             continue
-        if key not in _THOT_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
+        if key not in _NAABIGA_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
             sanitized[key] = value
 
     for key, value in (extra_env or {}).items():
-        if key.startswith(_THOT_PROVIDER_ENV_FORCE_PREFIX):
-            real_key = key[len(_THOT_PROVIDER_ENV_FORCE_PREFIX):]
-            if _is_thot_internal_secret(real_key):
+        if key.startswith(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):
+            real_key = key[len(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):]
+            if _is_naabiga_internal_secret(real_key):
                 continue
             sanitized[real_key] = value
-        elif _is_thot_internal_secret(key):
+        elif _is_naabiga_internal_secret(key):
             continue
-        elif key not in _THOT_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
+        elif key not in _NAABIGA_PROVIDER_ENV_BLOCKLIST or _is_passthrough(key):
             sanitized[key] = value
 
-    _inject_context_thot_home(sanitized)
+    _inject_context_naabiga_home(sanitized)
 
-    from thot_constants import apply_subprocess_home_env
+    from naabiga_constants import apply_subprocess_home_env
     apply_subprocess_home_env(sanitized)
 
     # Same cross-session leak guard as _make_run_env, for the background/PTY
@@ -391,11 +391,11 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
 # Tier-1 secrets: stripped from EVERY spawned subprocess unconditionally —
 # even when the caller opts into credential inheritance for a model-driving
 # CLI (claude / codex / gemini).  These are not LLM provider credentials; no
-# legitimate child Thot spawns needs them, and they are the highest-value
+# legitimate child Naabiga spawns needs them, and they are the highest-value
 # secrets to keep out of a compromised dependency's reach (gateway bot tokens,
 # GitHub auth, remote-compute tokens, dashboard session secret).  The set is a
-# narrow subset of _THOT_PROVIDER_ENV_BLOCKLIST; provider keys are handled by
-# the conditional Tier-2 strip in thot_subprocess_env().
+# narrow subset of _NAABIGA_PROVIDER_ENV_BLOCKLIST; provider keys are handled by
+# the conditional Tier-2 strip in naabiga_subprocess_env().
 _ALWAYS_STRIP_KEYS: frozenset[str] = frozenset({
     # GitHub auth
     "GH_TOKEN",
@@ -415,7 +415,7 @@ _ALWAYS_STRIP_KEYS: frozenset[str] = frozenset({
     # provisions and persists to the 0600 .env. Stripped unconditionally on
     # EVERY spawn surface (terminal + model-driving CLIs) so it can't drift
     # between paths: _SECRET / _DELIVERY_KEY are also matched by
-    # _is_thot_internal_secret, but _ID has no secret suffix, so it must be
+    # _is_naabiga_internal_secret, but _ID has no secret suffix, so it must be
     # enumerated here to stay stripped on the inherit_credentials=True path
     # (codex / copilot), which skips the Tier-2 blocklist.
     "GATEWAY_RELAY_ID",
@@ -423,7 +423,7 @@ _ALWAYS_STRIP_KEYS: frozenset[str] = frozenset({
     "GATEWAY_RELAY_DELIVERY_KEY",
     "HASS_TOKEN",
     "EMAIL_PASSWORD",
-    "THOT_DASHBOARD_SESSION_TOKEN",
+    "NAABIGA_DASHBOARD_SESSION_TOKEN",
     # Remote-compute / infrastructure secrets
     "MODAL_TOKEN_ID",
     "MODAL_TOKEN_SECRET",
@@ -431,14 +431,14 @@ _ALWAYS_STRIP_KEYS: frozenset[str] = frozenset({
 })
 
 
-def thot_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
+def naabiga_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
     """Build a sanitized environment dict for a spawned subprocess.
 
     Centralized helper for the **non-terminal** spawn surface (browser,
     ACP/CLI executors, computer-use driver, dep-ensure, TUI Node host,
     detached gateway).  Use this instead of copying ``os.environ`` directly
     so strip-by-default is the uniform policy across every spawn site, with a
-    single source of truth (``_THOT_PROVIDER_ENV_BLOCKLIST``).  The terminal
+    single source of truth (``_NAABIGA_PROVIDER_ENV_BLOCKLIST``).  The terminal
     / execute_code path keeps using :func:`_sanitize_subprocess_env`, which is
     skill-aware (``env_passthrough``); this helper is for spawns that have no
     skill-passthrough concept.
@@ -447,8 +447,8 @@ def thot_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
 
     * **Tier 1 (always):** ``_ALWAYS_STRIP_KEYS`` — gateway bot tokens, GitHub
       auth, and remote-compute secrets are removed regardless of
-      ``inherit_credentials``.  No child Thot spawns legitimately needs them.
-    * **Tier 2 (conditional):** the rest of ``_THOT_PROVIDER_ENV_BLOCKLIST``
+      ``inherit_credentials``.  No child Naabiga spawns legitimately needs them.
+    * **Tier 2 (conditional):** the rest of ``_NAABIGA_PROVIDER_ENV_BLOCKLIST``
       (LLM provider API keys, tool secrets) is removed unless the caller passes
       ``inherit_credentials=True``.
 
@@ -468,27 +468,27 @@ def thot_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
     # Tier 1 — always strip.
     for key in _ALWAYS_STRIP_KEYS:
         env.pop(key, None)
-    # Internal routing hints and Thot-internal dynamic secrets
+    # Internal routing hints and Naabiga-internal dynamic secrets
     # (``AUXILIARY_<TASK>_API_KEY`` / ``_BASE_URL`` side-LLM credentials,
     # ``GATEWAY_RELAY_*`` relay-auth material) must never reach a child,
     # regardless of ``inherit_credentials`` — a model-driving CLI has no
-    # legitimate use for them. See :func:`_is_thot_internal_secret`.
+    # legitimate use for them. See :func:`_is_naabiga_internal_secret`.
     for key in list(env):
-        if key.startswith(_THOT_PROVIDER_ENV_FORCE_PREFIX):
+        if key.startswith(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):
             env.pop(key, None)
-        elif _is_thot_internal_secret(key):
+        elif _is_naabiga_internal_secret(key):
             env.pop(key, None)
 
     if not inherit_credentials:
         # Tier 2 — strip provider/tool credentials unless explicitly inherited.
-        for key in _THOT_PROVIDER_ENV_BLOCKLIST:
+        for key in _NAABIGA_PROVIDER_ENV_BLOCKLIST:
             env.pop(key, None)
 
     # Windows UTF-8 safety for spawned processes (#31420).
     env.setdefault("PYTHONUTF8", "1")
 
-    _inject_context_thot_home(env)
-    from thot_constants import apply_subprocess_home_env
+    _inject_context_naabiga_home(env)
+    from naabiga_constants import apply_subprocess_home_env
     apply_subprocess_home_env(env)
 
     # Active-venv markers must not clobber another project's environment.
@@ -498,7 +498,7 @@ def thot_subprocess_env(*, inherit_credentials: bool = False) -> dict[str, str]:
     _apply_windows_msys_bash_env_defaults(env)
 
     # Cross-session leak guard, same as the terminal spawn paths: this helper
-    # copies os.environ, whose THOT_SESSION_* mirror is a last-writer-wins
+    # copies os.environ, whose NAABIGA_SESSION_* mirror is a last-writer-wins
     # global under a concurrent multi-session host. A caller that re-binds the
     # session identity explicitly (slash_worker/ACP via --session-key argv) is
     # unaffected — bound ContextVars win here — but a caller that spawns without
@@ -521,7 +521,7 @@ def _find_bash() -> str:
             or "/bin/sh"
         )
 
-    custom = os.environ.get("THOT_GIT_BASH_PATH")
+    custom = os.environ.get("NAABIGA_GIT_BASH_PATH")
     if custom and os.path.isfile(custom):
         return custom
 
@@ -532,14 +532,14 @@ def _find_bash() -> str:
     #
     # Layouts (both checked so upgrades between MinGit and PortableGit
     # installs work transparently):
-    #   PortableGit: %LOCALAPPDATA%\thot\git\bin\bash.exe   (primary)
-    #   MinGit:      %LOCALAPPDATA%\thot\git\usr\bin\bash.exe (legacy/32-bit fallback)
+    #   PortableGit: %LOCALAPPDATA%\naabiga\git\bin\bash.exe   (primary)
+    #   MinGit:      %LOCALAPPDATA%\naabiga\git\usr\bin\bash.exe (legacy/32-bit fallback)
     _local_appdata = os.environ.get("LOCALAPPDATA", "")
-    _thot_portable_git = os.path.join(_local_appdata, "thot", "git") if _local_appdata else ""
-    if _thot_portable_git:
+    _naabiga_portable_git = os.path.join(_local_appdata, "naabiga", "git") if _local_appdata else ""
+    if _naabiga_portable_git:
         for candidate in (
-            os.path.join(_thot_portable_git, "bin", "bash.exe"),        # PortableGit (primary)
-            os.path.join(_thot_portable_git, "usr", "bin", "bash.exe"), # MinGit fallback
+            os.path.join(_naabiga_portable_git, "bin", "bash.exe"),        # PortableGit (primary)
+            os.path.join(_naabiga_portable_git, "usr", "bin", "bash.exe"), # MinGit fallback
         ):
             if os.path.isfile(candidate):
                 return candidate
@@ -561,9 +561,9 @@ def _find_bash() -> str:
         return found
 
     raise RuntimeError(
-        "Git Bash not found. Thot Agent requires Git for Windows on Windows.\n"
+        "Git Bash not found. Naabiga Agent requires Git for Windows on Windows.\n"
         "Install it from: https://git-scm.com/download/win\n"
-        "Or set THOT_GIT_BASH_PATH to your bash.exe location."
+        "Or set NAABIGA_GIT_BASH_PATH to your bash.exe location."
     )
 
 
@@ -622,42 +622,42 @@ _SANE_PATH = (
     "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
 
-# Cached directory containing the ``thot`` console-script.
+# Cached directory containing the ``naabiga`` console-script.
 # ``_SENTINEL`` distinguishes "not resolved yet" from a resolved ``None``.
 _SENTINEL = object()
-_THOT_BIN_DIR: "str | None | object" = _SENTINEL
+_NAABIGA_BIN_DIR: "str | None | object" = _SENTINEL
 
 
-def _resolve_thot_bin_dir() -> str | None:
-    """Return the directory holding the ``thot`` console-script, or None.
+def _resolve_naabiga_bin_dir() -> str | None:
+    """Return the directory holding the ``naabiga`` console-script, or None.
 
     The terminal tool runs in a freshly-spawned subshell whose PATH is the
     agent process's PATH plus a static set of system dirs (``_SANE_PATH``).
     When the gateway is launched by something that does NOT source the user's
     shell rc — systemd, a service manager, a desktop launcher, cron — the
-    thot install dir (``~/.local/bin``, the venv ``bin``/``Scripts``, pipx,
-    nix) is absent from that PATH, so plugins shelling out to bare ``thot``
+    naabiga install dir (``~/.local/bin``, the venv ``bin``/``Scripts``, pipx,
+    nix) is absent from that PATH, so plugins shelling out to bare ``naabiga``
     via the terminal tool hit ``command not found`` (exit 127) even though
-    ``thot`` works fine in the user's own interactive terminal.
+    ``naabiga`` works fine in the user's own interactive terminal.
 
     We resolve the install dir once (it never changes within a process) and
-    prepend-if-missing it to the subshell PATH so bare ``thot`` resolves
+    prepend-if-missing it to the subshell PATH so bare ``naabiga`` resolves
     regardless of how the gateway was started.
 
     Resolution order (cheap, no heavy imports):
-      1. ``shutil.which("thot")`` — normal PATH-installed shim.
+      1. ``shutil.which("naabiga")`` — normal PATH-installed shim.
       2. The directory of ``sys.argv[0]`` when it's an absolute path to a
-         real ``thot`` executable (covers nix-store / venv wrappers).
+         real ``naabiga`` executable (covers nix-store / venv wrappers).
       3. The directory of ``sys.executable`` — the running interpreter's
          venv ``bin``/``Scripts`` is where its console-scripts live.
     """
-    global _THOT_BIN_DIR
-    if _THOT_BIN_DIR is not _SENTINEL:
-        return _THOT_BIN_DIR  # type: ignore[return-value]
+    global _NAABIGA_BIN_DIR
+    if _NAABIGA_BIN_DIR is not _SENTINEL:
+        return _NAABIGA_BIN_DIR  # type: ignore[return-value]
 
     candidate: str | None = None
 
-    which = shutil.which("thot")
+    which = shutil.which("naabiga")
     if which:
         candidate = os.path.dirname(which)
 
@@ -666,7 +666,7 @@ def _resolve_thot_bin_dir() -> str | None:
         base = os.path.basename(argv0).lower()
         if (
             os.path.isabs(argv0)
-            and (base == "thot" or base.startswith("thot."))
+            and (base == "naabiga" or base.startswith("naabiga."))
             and os.path.isfile(argv0)
         ):
             candidate = os.path.dirname(argv0)
@@ -674,25 +674,25 @@ def _resolve_thot_bin_dir() -> str | None:
     if candidate is None:
         exe_dir = os.path.dirname(sys.executable) if sys.executable else ""
         if exe_dir:
-            shim = "thot.exe" if _IS_WINDOWS else "thot"
+            shim = "naabiga.exe" if _IS_WINDOWS else "naabiga"
             if os.path.isfile(os.path.join(exe_dir, shim)):
                 candidate = exe_dir
 
     if candidate and not os.path.isdir(candidate):
         candidate = None
 
-    _THOT_BIN_DIR = candidate
+    _NAABIGA_BIN_DIR = candidate
     return candidate
 
 
-def _prepend_thot_bin_dir(existing_path: str) -> str:
-    """Prepend the thot install dir to ``existing_path`` if it's missing.
+def _prepend_naabiga_bin_dir(existing_path: str) -> str:
+    """Prepend the naabiga install dir to ``existing_path`` if it's missing.
 
     Cross-platform (uses ``os.pathsep``). First-occurrence wins, so a PATH
     that already contains the dir is returned unchanged. Returns the input
     unchanged when the install dir can't be resolved.
     """
-    bin_dir = _resolve_thot_bin_dir()
+    bin_dir = _resolve_naabiga_bin_dir()
     if not bin_dir:
         return existing_path
     sep = os.pathsep
@@ -755,7 +755,7 @@ def _apply_windows_msys_bash_env_defaults(env: dict) -> None:
 
     Git Bash rewrites arguments that look like Unix paths (``/FO``, ``/TN``,
     ``/Create``) into ``C:/.../git/FO``-style paths, which breaks native
-    Windows commands such as ``tasklist``, ``schtasks``, and ``wmic``.  Thot
+    Windows commands such as ``tasklist``, ``schtasks``, and ``wmic``.  Naabiga
     runs terminal commands through bash on Windows, so set the standard MSYS
     opt-out by default.  Users who need conversion can override in their env.
     Refs #56700.
@@ -801,26 +801,26 @@ def _make_run_env(env: dict) -> dict:
     merged = dict(os.environ | env)
     run_env = {}
     for k, v in merged.items():
-        if k.startswith(_THOT_PROVIDER_ENV_FORCE_PREFIX):
-            real_key = k[len(_THOT_PROVIDER_ENV_FORCE_PREFIX):]
-            if _is_thot_internal_secret(real_key):
+        if k.startswith(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):
+            real_key = k[len(_NAABIGA_PROVIDER_ENV_FORCE_PREFIX):]
+            if _is_naabiga_internal_secret(real_key):
                 continue
             run_env[real_key] = v
-        elif _is_thot_internal_secret(k):
+        elif _is_naabiga_internal_secret(k):
             continue
-        elif k not in _THOT_PROVIDER_ENV_BLOCKLIST or _is_passthrough(k):
+        elif k not in _NAABIGA_PROVIDER_ENV_BLOCKLIST or _is_passthrough(k):
             run_env[k] = v
     path_key = _path_env_key(run_env)
     if path_key is not None:
         new_path = _append_missing_sane_path_entries(run_env.get(path_key, ""))
-        # Ensure the thot install dir is reachable so plugins can shell out
-        # to bare ``thot`` via the terminal tool even when the gateway was
+        # Ensure the naabiga install dir is reachable so plugins can shell out
+        # to bare ``naabiga`` via the terminal tool even when the gateway was
         # launched without it on PATH (systemd, service managers, cron, etc.).
-        run_env[path_key] = _prepend_thot_bin_dir(new_path)
+        run_env[path_key] = _prepend_naabiga_bin_dir(new_path)
 
-    _inject_context_thot_home(run_env)
+    _inject_context_naabiga_home(run_env)
 
-    from thot_constants import apply_subprocess_home_env
+    from naabiga_constants import apply_subprocess_home_env
     apply_subprocess_home_env(run_env)
 
     # Bridge ContextVar-based session vars into the subprocess env (with the
@@ -843,7 +843,7 @@ def _read_terminal_shell_init_config() -> tuple[list[str], bool]:
     execution never breaks because the config file is unreadable.
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
 
         cfg = load_config() or {}
         terminal_cfg = cfg.get("terminal") or {}
@@ -862,7 +862,7 @@ def _resolve_shell_init_files() -> list[str]:
     Expands ``~`` and ``${VAR}`` references and drops anything that doesn't
     exist on disk, so a missing ``~/.bashrc`` never breaks the snapshot.
     The ``auto_source_bashrc`` path runs only when the user hasn't supplied
-    an explicit list — once they have, Thot trusts them.
+    an explicit list — once they have, Naabiga trusts them.
     """
     explicit, auto_bashrc = _read_terminal_shell_init_config()
 
@@ -949,20 +949,20 @@ class LocalEnvironment(BaseEnvironment):
         can't open the path, and the Windows default temp (``%TEMP%``) often
         contains spaces (``C:\\Users\\Some Name\\AppData\\Local\\Temp``) that
         break unquoted bash interpolations.  Use a dedicated cache dir under
-        ``THOT_HOME`` instead — single-word path, guaranteed to exist, same
+        ``NAABIGA_HOME`` instead — single-word path, guaranteed to exist, same
         string resolves in both Git Bash and native Python.
         """
         if _IS_WINDOWS:
-            # Derive a Windows-safe temp dir under THOT_HOME.  Using
+            # Derive a Windows-safe temp dir under NAABIGA_HOME.  Using
             # forward slashes makes the same string work unchanged in bash
             # command interpolations AND in Python ``open()`` — Windows
             # accepts forward slashes in filesystem paths, and we control
             # the path so we can guarantee no spaces.
             try:
-                from thot_constants import get_thot_home
-                cache_dir = get_thot_home() / "cache" / "terminal"
+                from naabiga_constants import get_naabiga_home
+                cache_dir = get_naabiga_home() / "cache" / "terminal"
             except Exception:
-                cache_dir = Path(tempfile.gettempdir()) / "thot_terminal"
+                cache_dir = Path(tempfile.gettempdir()) / "naabiga_terminal"
             cache_dir.mkdir(parents=True, exist_ok=True)
             # Force forward slashes so the same string serves both contexts.
             return str(cache_dir).replace("\\", "/")
@@ -1047,7 +1047,7 @@ class LocalEnvironment(BaseEnvironment):
         )
         if not _IS_WINDOWS:
             try:
-                proc._thot_pgid = os.getpgid(proc.pid)
+                proc._naabiga_pgid = os.getpgid(proc.pid)
             except ProcessLookupError:
                 pass
 
@@ -1104,7 +1104,7 @@ class LocalEnvironment(BaseEnvironment):
                 try:
                     pgid = os.getpgid(proc.pid)
                 except ProcessLookupError:
-                    pgid = getattr(proc, "_thot_pgid", None)
+                    pgid = getattr(proc, "_naabiga_pgid", None)
                     if pgid is None:
                         raise
 

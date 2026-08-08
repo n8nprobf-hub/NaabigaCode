@@ -10,25 +10,25 @@ Server-side LLM fact extraction with semantic search and hybrid multi-signal ret
 ## Setup
 
 ```bash
-thot memory setup    # select "mem0"
+naabiga memory setup    # select "mem0"
 ```
 
 Or manually:
 ```bash
-thot config set memory.provider mem0
-echo "MEM0_API_KEY=your-key" >> ~/.thot/.env
+naabiga config set memory.provider mem0
+echo "MEM0_API_KEY=your-key" >> ~/.naabiga/.env
 ```
 
 ## Config
 
-Behavioral settings live in `$THOT_HOME/mem0.json` (set them via `thot memory setup`). Only the secret `MEM0_API_KEY` belongs in `~/.thot/.env`.
+Behavioral settings live in `$NAABIGA_HOME/mem0.json` (set them via `naabiga memory setup`). Only the secret `MEM0_API_KEY` belongs in `~/.naabiga/.env`.
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `mode` | `platform` | `platform` (Mem0 Cloud) or `oss` (self-managed, in-process) |
 | `host` | — | Self-hosted Mem0 server URL (the Docker dashboard). When set, connects over HTTP with `X-API-Key`. Don't combine with `mode: oss` |
-| `user_id` | `thot-user` | User identifier on Mem0 |
-| `agent_id` | `thot` | Agent identifier |
+| `user_id` | `naabiga-user` | User identifier on Mem0 |
+| `agent_id` | `naabiga` | Agent identifier |
 | `rerank` | `false` | Rerank search results for relevance (platform mode only) |
 
 The plugin has three connection modes:
@@ -44,23 +44,23 @@ Connect the plugin to a standalone Mem0 server you run yourself — the Docker-s
 1. Run the Mem0 server (FastAPI + pgvector) from its Docker image and note its URL and `ADMIN_API_KEY`.
 2. Point the plugin at it — via the setup wizard:
    ```bash
-   thot memory setup    # select "mem0" → "Self-hosted server"
+   naabiga memory setup    # select "mem0" → "Self-hosted server"
    # Or non-interactive:
-   thot memory setup mem0 --mode selfhosted --host http://localhost:8888 --api-key your-admin-api-key
+   naabiga memory setup mem0 --mode selfhosted --host http://localhost:8888 --api-key your-admin-api-key
    ```
    or via env vars:
    ```bash
-   echo "MEM0_HOST=http://localhost:8888" >> ~/.thot/.env
-   echo "MEM0_API_KEY=your-admin-api-key" >> ~/.thot/.env
+   echo "MEM0_HOST=http://localhost:8888" >> ~/.naabiga/.env
+   echo "MEM0_API_KEY=your-admin-api-key" >> ~/.naabiga/.env
    ```
-   or in `$THOT_HOME/mem0.json`:
+   or in `$NAABIGA_HOME/mem0.json`:
    ```json
    {
      "host": "http://localhost:8888",
      "api_key": "your-admin-api-key"
    }
    ```
-3. Start a fresh Thot session and call `mem0_search` — it connects to your server.
+3. Start a fresh Naabiga session and call `mem0_search` — it connects to your server.
 
 The plugin authenticates with `X-API-Key` and uses the server's `/search` and `/memories` routes. `api_key` is optional — omit it only for servers running with `AUTH_DISABLED`.
 
@@ -73,7 +73,7 @@ Run Mem0 locally with your own LLM, embedder, and vector store. This is the in-p
 ### Interactive Setup
 
 ```bash
-thot memory setup
+naabiga memory setup
 # Select "mem0" → "Open Source (self-hosted)"
 # Follow prompts for LLM, embedder, and vector store
 ```
@@ -81,7 +81,7 @@ thot memory setup
 ### Agent-Driven Setup (Flags)
 
 ```bash
-thot memory setup mem0 --mode oss \
+naabiga memory setup mem0 --mode oss \
   --oss-llm openai --oss-llm-key sk-... \
   --oss-vector qdrant
 ```
@@ -111,17 +111,17 @@ thot memory setup mem0 --mode oss \
 ### Platform to OSS
 
 ```bash
-thot memory setup mem0 --mode oss --oss-llm-key sk-...
+naabiga memory setup mem0 --mode oss --oss-llm-key sk-...
 ```
 
-Or edit `$THOT_HOME/mem0.json` directly:
+Or edit `$NAABIGA_HOME/mem0.json` directly:
 ```json
 {
   "mode": "oss",
   "oss": {
     "llm": {"provider": "openai", "config": {"model": "gpt-5-mini"}},
     "embedder": {"provider": "openai", "config": {"model": "text-embedding-3-small"}},
-    "vector_store": {"provider": "qdrant", "config": {"path": "~/.thot/mem0_qdrant"}}
+    "vector_store": {"provider": "qdrant", "config": {"path": "~/.naabiga/mem0_qdrant"}}
   }
 }
 ```
@@ -129,13 +129,13 @@ Or edit `$THOT_HOME/mem0.json` directly:
 ### OSS to Platform
 
 ```bash
-thot memory setup mem0 --mode platform --api-key sk-...
+naabiga memory setup mem0 --mode platform --api-key sk-...
 ```
 
 ### Dry Run (preview without writing)
 
 ```bash
-thot memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
+naabiga memory setup mem0 --mode oss --oss-llm-key sk-... --dry-run
 ```
 
 ## Tools
@@ -160,7 +160,7 @@ Circuit breaker tripped after 5 consecutive failures. Resets after 2 minutes.
 
 ```bash
 # If using local Qdrant, check the storage path is writable:
-ls -la ~/.thot/mem0_qdrant
+ls -la ~/.naabiga/mem0_qdrant
 
 # If using Qdrant server, check it's reachable:
 curl http://localhost:6333/healthz
@@ -184,4 +184,4 @@ curl http://localhost:11434/api/tags
 
 - `mem0_add` stores verbatim (no extraction). Use `sync_turn` for LLM extraction.
 - Search uses semantic matching — try broader queries.
-- Check `user_id` matches between sessions (`$THOT_HOME/mem0.json`).
+- Check `user_id` matches between sessions (`$NAABIGA_HOME/mem0.json`).

@@ -1,7 +1,7 @@
 """Subprocess lifecycle manager for the google_meet bot.
 
 Single active meeting at a time. Stores the running pid + out_dir in a
-session-scoped state file under ``$THOT_HOME/workspace/meetings/.active.json``
+session-scoped state file under ``$NAABIGA_HOME/workspace/meetings/.active.json``
 so tool calls across turns can find the bot, and ``on_session_end`` can clean
 it up.
 
@@ -20,9 +20,9 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 
-# File + directory layout (under $THOT_HOME):
+# File + directory layout (under $NAABIGA_HOME):
 #
 #   workspace/meetings/
 #       .active.json                # pointer to current session's bot
@@ -37,7 +37,7 @@ from thot_constants import get_thot_home
 
 
 def _root() -> Path:
-    return Path(get_thot_home()) / "workspace" / "meetings"
+    return Path(get_naabiga_home()) / "workspace" / "meetings"
 
 
 def _active_file() -> Path:
@@ -87,7 +87,7 @@ def start(
     out_dir: Optional[Path] = None,
     headed: bool = False,
     auth_state: Optional[str] = None,
-    guest_name: str = "Thot Agent",
+    guest_name: str = "Naabiga Agent",
     duration: Optional[str] = None,
     session_id: Optional[str] = None,
     mode: str = "transcribe",
@@ -98,7 +98,7 @@ def start(
 ) -> Dict[str, Any]:
     """Spawn the meet_bot subprocess for *url*.
 
-    If a bot is already running for this thot install, leave it first —
+    If a bot is already running for this naabiga install, leave it first —
     we enforce single-active-meeting semantics.
 
     Returns a dict summarizing the started bot.
@@ -133,27 +133,27 @@ def start(
                 pass
 
     env = os.environ.copy()
-    env["THOT_MEET_URL"] = url
-    env["THOT_MEET_OUT_DIR"] = str(out)
-    env["THOT_MEET_GUEST_NAME"] = guest_name
+    env["NAABIGA_MEET_URL"] = url
+    env["NAABIGA_MEET_OUT_DIR"] = str(out)
+    env["NAABIGA_MEET_GUEST_NAME"] = guest_name
     if headed:
-        env["THOT_MEET_HEADED"] = "1"
+        env["NAABIGA_MEET_HEADED"] = "1"
     if auth_state:
-        env["THOT_MEET_AUTH_STATE"] = auth_state
+        env["NAABIGA_MEET_AUTH_STATE"] = auth_state
     if duration:
-        env["THOT_MEET_DURATION"] = duration
+        env["NAABIGA_MEET_DURATION"] = duration
     # v2: realtime mode + passthroughs. The bot defaults to transcribe
-    # mode if THOT_MEET_MODE isn't set, matching v1 behavior.
+    # mode if NAABIGA_MEET_MODE isn't set, matching v1 behavior.
     if mode:
-        env["THOT_MEET_MODE"] = mode
+        env["NAABIGA_MEET_MODE"] = mode
     if realtime_model:
-        env["THOT_MEET_REALTIME_MODEL"] = realtime_model
+        env["NAABIGA_MEET_REALTIME_MODEL"] = realtime_model
     if realtime_voice:
-        env["THOT_MEET_REALTIME_VOICE"] = realtime_voice
+        env["NAABIGA_MEET_REALTIME_VOICE"] = realtime_voice
     if realtime_instructions:
-        env["THOT_MEET_REALTIME_INSTRUCTIONS"] = realtime_instructions
+        env["NAABIGA_MEET_REALTIME_INSTRUCTIONS"] = realtime_instructions
     if realtime_api_key:
-        env["THOT_MEET_REALTIME_KEY"] = realtime_api_key
+        env["NAABIGA_MEET_REALTIME_KEY"] = realtime_api_key
 
     log_path = out / "bot.log"
     # Detach: stdin=devnull, stdout/stderr → log file, new session so parent

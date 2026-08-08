@@ -40,7 +40,7 @@ SKILL.md Format (YAML Frontmatter, agentskills.io compatible):
       commands: [curl, jq]        #   Command checks remain advisory only.
     compatibility: Requires X     # Optional (agentskills.io)
     metadata:                     # Optional, arbitrary key-value (agentskills.io)
-      thot:
+      naabiga:
         tags: [fine-tuning, llm]
         related_skills: [peft, lora]
     ---
@@ -69,7 +69,7 @@ Usage:
 import json
 import logging
 
-from thot_constants import get_thot_home, display_thot_home
+from naabiga_constants import get_naabiga_home, display_naabiga_home
 import os
 import re
 from enum import Enum
@@ -77,7 +77,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Dict, Any, List, Optional, Set, Tuple
 
 from tools.registry import registry, tool_error
-from thot_cli.config import cfg_get
+from naabiga_cli.config import cfg_get
 from utils import env_var_enabled
 from agent.skill_utils import (
     EXCLUDED_SKILL_DIRS as _EXCLUDED_SKILL_DIRS,
@@ -87,11 +87,11 @@ from agent.skill_utils import (
 logger = logging.getLogger(__name__)
 
 
-# All skills live in ~/.thot/skills/ (seeded from bundled skills/ on install).
+# All skills live in ~/.naabiga/skills/ (seeded from bundled skills/ on install).
 # This is the single source of truth -- agent edits, hub installs, and bundled
 # skills all coexist here without polluting the git repo.
-THOT_HOME = get_thot_home()
-SKILLS_DIR = THOT_HOME / "skills"
+NAABIGA_HOME = get_naabiga_home()
+SKILLS_DIR = NAABIGA_HOME / "skills"
 _SKILLS_DIR_AT_IMPORT = SKILLS_DIR
 
 
@@ -99,14 +99,14 @@ def _skills_dir() -> Path:
     """Return the active profile's skills directory at call time.
 
     Some long-lived runtimes import this module before the active profile has
-    set THOT_HOME. Keep the legacy SKILLS_DIR module attribute for tests and
+    set NAABIGA_HOME. Keep the legacy SKILLS_DIR module attribute for tests and
     external patchers, but when it has not been patched, resolve from the live
-    profile-scoped THOT_HOME on every call.
+    profile-scoped NAABIGA_HOME on every call.
     """
     configured = Path(SKILLS_DIR)
     if configured != _SKILLS_DIR_AT_IMPORT:
         return configured
-    return get_thot_home() / "skills"
+    return get_naabiga_home() / "skills"
 
 
 # Anthropic-recommended limits for progressive disclosure efficiency
@@ -155,8 +155,8 @@ def _skill_lookup_path_error(name: str) -> Optional[str]:
 
 
 def load_env() -> Dict[str, str]:
-    """Load profile-scoped environment variables from THOT_HOME/.env."""
-    env_path = get_thot_home() / ".env"
+    """Load profile-scoped environment variables from NAABIGA_HOME/.env."""
+    env_path = get_naabiga_home() / ".env"
     env_vars: Dict[str, str] = {}
     if not env_path.exists():
         return env_vars
@@ -367,11 +367,11 @@ def _capture_required_environment_variables(
     missing_names = [entry["name"] for entry in missing_entries]
     # Most gateway surfaces (messaging platforms) can't prompt for a secret, so
     # they short-circuit to the "unsupported" hint. Interactive gateway surfaces
-    # — the desktop app / TUI — set THOT_INTERACTIVE and register a
+    # — the desktop app / TUI — set NAABIGA_INTERACTIVE and register a
     # secret-capture callback that routes to a secure secret.request overlay, so
-    # they fall through and actually prompt. (THOT_INTERACTIVE is the same flag
+    # they fall through and actually prompt. (NAABIGA_INTERACTIVE is the same flag
     # tools/approval.py uses to tell an interactive surface from a messaging one.)
-    if _is_gateway_surface() and not env_var_enabled("THOT_INTERACTIVE"):
+    if _is_gateway_surface() and not env_var_enabled("NAABIGA_INTERACTIVE"):
         return {
             "missing_names": missing_names,
             "setup_skipped": False,
@@ -432,10 +432,10 @@ def _capture_required_environment_variables(
 
 
 def _is_gateway_surface() -> bool:
-    if env_var_enabled("THOT_GATEWAY_SESSION"):
+    if env_var_enabled("NAABIGA_GATEWAY_SESSION"):
         return True
     from gateway.session_context import get_session_env
-    return bool(get_session_env("THOT_SESSION_PLATFORM"))
+    return bool(get_session_env("NAABIGA_SESSION_PLATFORM"))
 
 
 def _get_terminal_backend_name() -> str:
@@ -478,7 +478,7 @@ def _gateway_setup_hint() -> str:
 
         return GATEWAY_SECRET_CAPTURE_UNSUPPORTED_MESSAGE
     except Exception:
-        return f"Secure secret entry is not available. Load this skill in the local CLI to be prompted, or add the key to {display_thot_home()}/.env manually."
+        return f"Secure secret entry is not available. Load this skill in the local CLI to be prompted, or add the key to {display_naabiga_home()}/.env manually."
 
 
 def _build_setup_note(
@@ -514,7 +514,7 @@ def _get_category_from_path(skill_path: Path) -> Optional[str]:
     """
     Extract category from skill path based on directory structure.
 
-    For paths like: ~/.thot/skills/mlops/axolotl/SKILL.md -> "mlops"
+    For paths like: ~/.naabiga/skills/mlops/axolotl/SKILL.md -> "mlops"
     Also works for external skill dirs configured via skills.external_dirs.
     """
     # Try the active profile skills dir first (respects monkeypatching in tests),
@@ -582,11 +582,11 @@ def _get_session_platform() -> str:
 
     Mirrors the platform-resolution logic in
     ``agent.skill_utils.get_disabled_skill_names`` so that
-    ``_is_skill_disabled`` respects ``THOT_SESSION_PLATFORM``.
+    ``_is_skill_disabled`` respects ``NAABIGA_SESSION_PLATFORM``.
     """
     try:
         from gateway.session_context import get_session_env
-        return get_session_env("THOT_SESSION_PLATFORM") or ""
+        return get_session_env("NAABIGA_SESSION_PLATFORM") or ""
     except Exception:
         return ""
 
@@ -596,14 +596,14 @@ def _is_skill_disabled(name: str, platform: str = None) -> bool:
 
     Resolves the active platform from (in order of precedence):
     1. Explicit ``platform`` argument
-    2. ``THOT_PLATFORM`` environment variable
-    3. ``THOT_SESSION_PLATFORM`` from gateway session context
+    2. ``NAABIGA_PLATFORM`` environment variable
+    3. ``NAABIGA_SESSION_PLATFORM`` from gateway session context
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
         config = load_config()
         skills_cfg = config.get("skills", {})
-        resolved_platform = platform or os.getenv("THOT_PLATFORM") or _get_session_platform()
+        resolved_platform = platform or os.getenv("NAABIGA_PLATFORM") or _get_session_platform()
         global_disabled = skills_cfg.get("disabled", [])
         if resolved_platform:
             platform_disabled = cfg_get(skills_cfg, "platform_disabled", resolved_platform)
@@ -618,11 +618,11 @@ def _is_skill_disabled(name: str, platform: str = None) -> bool:
 
 
 def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
-    """Recursively find all skills in ~/.thot/skills/ and external dirs.
+    """Recursively find all skills in ~/.naabiga/skills/ and external dirs.
 
     Args:
         skip_disabled: If True, return ALL skills regardless of disabled
-            state (used by ``thot skills`` config UI). Default False
+            state (used by ``naabiga skills`` config UI). Default False
             filters out disabled skills.
 
     Returns:
@@ -726,7 +726,7 @@ def skills_list(category: str = None, task_id: str = None) -> str:
                     "success": True,
                     "skills": [],
                     "categories": [],
-                    "message": f"No skills found. Skills directory created at {display_thot_home()}/skills/",
+                    "message": f"No skills found. Skills directory created at {display_naabiga_home()}/skills/",
                 },
                 ensure_ascii=False,
             )
@@ -784,7 +784,7 @@ def _serve_plugin_skill(
     session_id: str | None = None,
 ) -> str:
     """Read a plugin-provided skill, apply guards, return JSON."""
-    from thot_cli.plugins import _get_disabled_plugins, get_plugin_manager
+    from naabiga_cli.plugins import _get_disabled_plugins, get_plugin_manager
 
     if namespace in _get_disabled_plugins():
         return json.dumps(
@@ -792,7 +792,7 @@ def _serve_plugin_skill(
                 "success": False,
                 "error": (
                     f"Plugin '{namespace}' is disabled. "
-                    f"Re-enable with: thot plugins enable {namespace}"
+                    f"Re-enable with: naabiga plugins enable {namespace}"
                 ),
             },
             ensure_ascii=False,
@@ -922,7 +922,7 @@ def skill_view(
         # Bare names fall through to the existing flat-tree scan below.
         if ":" in name:
             from agent.skill_utils import is_valid_namespace, parse_qualified_name
-            from thot_cli.plugins import discover_plugins, get_plugin_manager
+            from naabiga_cli.plugins import discover_plugins, get_plugin_manager
 
             namespace, bare = parse_qualified_name(name)
             if not is_valid_namespace(namespace):
@@ -1175,7 +1175,7 @@ def skill_view(
         if _outside_skills_dir or _injection_detected:
             _warnings = []
             if _outside_skills_dir:
-                _warnings.append(f"skill file is outside the trusted skills directory (~/.thot/skills/): {skill_md}")
+                _warnings.append(f"skill file is outside the trusted skills directory (~/.naabiga/skills/): {skill_md}")
             if _injection_detected:
                 _warnings.append("skill content contains patterns that may indicate prompt injection")
             logging.getLogger(__name__).warning("Skill security warning for '%s': %s", name, "; ".join(_warnings))
@@ -1204,7 +1204,7 @@ def skill_view(
                     "success": False,
                     "error": (
                         f"Skill '{resolved_name}' is disabled. "
-                        "Enable it with `thot skills` or inspect the files directly on disk."
+                        "Enable it with `naabiga skills` or inspect the files directly on disk."
                     ),
                 },
                 ensure_ascii=False,
@@ -1371,15 +1371,15 @@ def skill_view(
                     )
 
         # Read tags/related_skills with backward compat:
-        # Check metadata.thot.* first (agentskills.io convention), fall back to top-level
-        thot_meta = {}
+        # Check metadata.naabiga.* first (agentskills.io convention), fall back to top-level
+        naabiga_meta = {}
         metadata = frontmatter.get("metadata")
         if isinstance(metadata, dict):
-            thot_meta = metadata.get("thot", {}) or {}
+            naabiga_meta = metadata.get("naabiga", {}) or {}
 
-        tags = _parse_tags(thot_meta.get("tags") or frontmatter.get("tags", ""))
+        tags = _parse_tags(naabiga_meta.get("tags") or frontmatter.get("tags", ""))
         related_skills = _parse_tags(
-            thot_meta.get("related_skills") or frontmatter.get("related_skills", "")
+            naabiga_meta.get("related_skills") or frontmatter.get("related_skills", "")
         )
 
         # Build linked files structure for clear discovery

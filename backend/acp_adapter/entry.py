@@ -1,6 +1,6 @@
-"""CLI entry point for the thot-agent ACP adapter.
+"""CLI entry point for the naabiga-agent ACP adapter.
 
-Loads environment variables from ``~/.thot/.env``, configures logging
+Loads environment variables from ``~/.naabiga/.env``, configures logging
 to write to stderr (so stdout is reserved for ACP JSON-RPC transport),
 and starts the ACP agent server.
 
@@ -8,33 +8,33 @@ Usage::
 
     python -m acp_adapter.entry
     # or
-    thot acp
+    naabiga acp
     # or
-    thot-acp
+    naabiga-acp
 """
 
-# IMPORTANT: thot_bootstrap must be the very first import — UTF-8 stdio
-# on Windows.  No-op on POSIX.  See thot_bootstrap.py for full rationale.
+# IMPORTANT: naabiga_bootstrap must be the very first import — UTF-8 stdio
+# on Windows.  No-op on POSIX.  See naabiga_bootstrap.py for full rationale.
 try:
-    import thot_bootstrap  # noqa: F401
+    import naabiga_bootstrap  # noqa: F401
 except ModuleNotFoundError:
-    # Graceful fallback when thot_bootstrap isn't registered in the venv
-    # yet — happens during partial ``thot update`` where git-reset landed
+    # Graceful fallback when naabiga_bootstrap isn't registered in the venv
+    # yet — happens during partial ``naabiga update`` where git-reset landed
     # new code but ``uv pip install -e .`` didn't finish.  Missing bootstrap
     # means UTF-8 stdio setup is skipped on Windows; POSIX is unaffected.
     pass
 else:
     # Stop a ``utils/``/``proxy/``/``ui/`` package in the launch directory from
-    # shadowing Thot's own modules — ``thot acp`` can be started from any
+    # shadowing Naabiga's own modules — ``naabiga acp`` can be started from any
     # cwd, including a project that has same-named packages on its path.
-    thot_bootstrap.harden_import_path()
+    naabiga_bootstrap.harden_import_path()
 
 import argparse
 import asyncio
 import logging
 import sys
 from pathlib import Path
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 
 
 # Methods clients send as periodic liveness probes. They are not part of the
@@ -99,26 +99,26 @@ def _setup_logging() -> None:
 
 
 def _load_env() -> None:
-    """Load .env from THOT_HOME (default ``~/.thot``)."""
-    from thot_cli.env_loader import load_thot_dotenv
+    """Load .env from NAABIGA_HOME (default ``~/.naabiga``)."""
+    from naabiga_cli.env_loader import load_naabiga_dotenv
 
-    thot_home = get_thot_home()
-    loaded = load_thot_dotenv(thot_home=thot_home)
+    naabiga_home = get_naabiga_home()
+    loaded = load_naabiga_dotenv(naabiga_home=naabiga_home)
     if loaded:
         for env_file in loaded:
             logging.getLogger(__name__).info("Loaded env from %s", env_file)
     else:
         logging.getLogger(__name__).info(
-            "No .env found at %s, using system env", thot_home / ".env"
+            "No .env found at %s, using system env", naabiga_home / ".env"
         )
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="thot-acp",
-        description="Run Thot Agent as an ACP stdio server.",
+        prog="naabiga-acp",
+        description="Run Naabiga Agent as an ACP stdio server.",
     )
-    parser.add_argument("--version", action="store_true", help="Print Thot version and exit")
+    parser.add_argument("--version", action="store_true", help="Print Naabiga version and exit")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -127,12 +127,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--setup",
         action="store_true",
-        help="Run interactive Thot provider/model setup for ACP terminal auth",
+        help="Run interactive Naabiga provider/model setup for ACP terminal auth",
     )
     parser.add_argument(
         "--setup-browser",
         action="store_true",
-        help="Install agent-browser + Playwright Chromium into ~/.thot/node/ "
+        help="Install agent-browser + Playwright Chromium into ~/.naabiga/node/ "
              "for browser tool support. Idempotent.",
     )
     parser.add_argument(
@@ -147,25 +147,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _print_version() -> None:
-    from thot_cli import __version__ as thot_version
+    from naabiga_cli import __version__ as naabiga_version
 
-    print(thot_version)
+    print(naabiga_version)
 
 
 def _run_check() -> None:
     import acp  # noqa: F401
-    from acp_adapter.server import ThotACPAgent  # noqa: F401
+    from acp_adapter.server import NaabigaACPAgent  # noqa: F401
 
-    print("Thot ACP check OK")
+    print("Naabiga ACP check OK")
 
 
 def _run_setup() -> None:
-    from thot_cli.main import main as thot_main
+    from naabiga_cli.main import main as naabiga_main
 
     old_argv = sys.argv[:]
     try:
-        sys.argv = [old_argv[0] if old_argv else "thot", "model"]
-        thot_main()
+        sys.argv = [old_argv[0] if old_argv else "naabiga", "model"]
+        naabiga_main()
     finally:
         sys.argv = old_argv
 
@@ -190,11 +190,11 @@ def _run_setup_browser(assume_yes: bool = False) -> int:
     """Bootstrap agent-browser + Chromium.
 
     Routes through dep_ensure -> install.{sh,ps1} --ensure, sharing code
-    with ``thot postinstall`` and the runtime lazy installer.
+    with ``naabiga postinstall`` and the runtime lazy installer.
 
     Returns 0 on success, 1 on failure.
     """
-    from thot_cli.dep_ensure import ensure_dependency
+    from naabiga_cli.dep_ensure import ensure_dependency
 
     try:
         node_ok = ensure_dependency("node", interactive=not assume_yes)
@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> None:
     _load_env()
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting thot-agent ACP adapter")
+    logger.info("Starting naabiga-agent ACP adapter")
 
     # Ensure the project root is on sys.path so ``from run_agent import AIAgent`` works
     project_root = str(Path(__file__).resolve().parent.parent)
@@ -244,7 +244,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.path.insert(0, project_root)
 
     import acp
-    from .server import ThotACPAgent
+    from .server import NaabigaACPAgent
 
     # MCP tool discovery from config.yaml — run before asyncio.run() so
     # it's safe to use blocking waits.  (ACP also registers per-session
@@ -257,7 +257,7 @@ def main(argv: list[str] | None = None) -> None:
     except Exception:
         logger.debug("MCP tool discovery failed at ACP startup", exc_info=True)
 
-    agent = ThotACPAgent()
+    agent = NaabigaACPAgent()
     try:
         asyncio.run(acp.run_agent(agent, use_unstable_protocol=True))
     except KeyboardInterrupt:

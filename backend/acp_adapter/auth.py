@@ -1,15 +1,15 @@
-"""ACP auth helpers — detect and advertise Thot authentication methods."""
+"""ACP auth helpers — detect and advertise Naabiga authentication methods."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
 
-TERMINAL_SETUP_AUTH_METHOD_ID = "thot-setup"
+TERMINAL_SETUP_AUTH_METHOD_ID = "naabiga-setup"
 
 
 def detect_provider() -> Optional[str]:
-    """Resolve the active Thot runtime provider, or None if unavailable.
+    """Resolve the active Naabiga runtime provider, or None if unavailable.
 
     Treats a ``Callable`` ``api_key`` (Azure Foundry Entra ID bearer
     token provider — see :mod:`agent.azure_identity_adapter`) as a valid
@@ -18,7 +18,7 @@ def detect_provider() -> Optional[str]:
     handshake rejects the legitimate provider.
     """
     try:
-        from thot_cli.runtime_provider import resolve_runtime_provider
+        from naabiga_cli.runtime_provider import resolve_runtime_provider
         runtime = resolve_runtime_provider()
         api_key = runtime.get("api_key")
         provider = runtime.get("provider")
@@ -34,16 +34,16 @@ def detect_provider() -> Optional[str]:
 
 
 def has_provider() -> bool:
-    """Return True if Thot can resolve any runtime provider credentials."""
+    """Return True if Naabiga can resolve any runtime provider credentials."""
     return detect_provider() is not None
 
 
 def build_auth_methods() -> list[Any]:
-    """Return registry-compatible ACP auth methods for Thot.
+    """Return registry-compatible ACP auth methods for Naabiga.
 
     The official ACP registry validates that agents advertise at least one
     usable auth method during the initial handshake. A fresh Zed install may
-    not have Thot provider credentials configured yet, so Thot always
+    not have Naabiga provider credentials configured yet, so Naabiga always
     advertises a terminal setup method. When credentials are already present,
     it also advertises the resolved provider as the default agent-managed
     runtime credential method.
@@ -58,7 +58,7 @@ def build_auth_methods() -> list[Any]:
                 id=provider,
                 name=f"{provider} runtime credentials",
                 description=(
-                    "Authenticate Thot using the currently configured "
+                    "Authenticate Naabiga using the currently configured "
                     f"{provider} runtime credentials."
                 ),
             )
@@ -67,10 +67,10 @@ def build_auth_methods() -> list[Any]:
     methods.append(
         TerminalAuthMethod(
             id=TERMINAL_SETUP_AUTH_METHOD_ID,
-            name="Configure Thot provider",
+            name="Configure Naabiga provider",
             description=(
-                "Open Thot' interactive model/provider setup in a terminal. "
-                "Use this when Thot has not been configured on this machine yet."
+                "Open Naabiga' interactive model/provider setup in a terminal. "
+                "Use this when Naabiga has not been configured on this machine yet."
             ),
             type="terminal",
             args=["--setup"],

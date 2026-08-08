@@ -17,7 +17,7 @@ Config via config.yaml:
     byterover:
       auto_extract: false  # disable automatic brv curate hooks
 
-Working directory: $THOT_HOME/byterover/ (profile-scoped context tree)
+Working directory: $NAABIGA_HOME/byterover/ (profile-scoped context tree)
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def _load_plugin_config() -> Dict[str, Any]:
     early docs/issues, so accept it as a compatibility fallback.
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
 
         config = load_config()
         memory_config = config.get("memory", {})
@@ -164,8 +164,8 @@ def _run_brv(args: List[str], timeout: int = _QUERY_TIMEOUT,
 
 def _get_brv_cwd() -> Path:
     """Profile-scoped working directory for the brv context tree."""
-    from thot_constants import get_thot_home
-    return get_thot_home() / "byterover"
+    from naabiga_constants import get_naabiga_home
+    return get_naabiga_home() / "byterover"
 
 
 # ---------------------------------------------------------------------------

@@ -2,19 +2,19 @@
 """
 Code Execution Tool -- Programmatic Tool Calling (PTC)
 
-Lets the LLM write a Python script that calls Thot tools via RPC,
+Lets the LLM write a Python script that calls Naabiga tools via RPC,
 collapsing multi-step tool chains into a single inference turn.
 
 Architecture (two transports):
 
   **Local backend (UDS):**
-  1. Parent generates a `thot_tools.py` stub module with UDS RPC functions
+  1. Parent generates a `naabiga_tools.py` stub module with UDS RPC functions
   2. Parent opens a Unix domain socket and starts an RPC listener thread
   3. Parent spawns a child process that runs the LLM's script
   4. Tool calls travel over the UDS back to the parent for dispatch
 
   **Remote backends (file-based RPC):**
-  1. Parent generates `thot_tools.py` with file-based RPC stubs
+  1. Parent generates `naabiga_tools.py` with file-based RPC stubs
   2. Parent ships both files to the remote environment
   3. Script runs inside the terminal backend (Docker/SSH/Modal/Daytona/etc.)
   4. Tool calls are written as request files; a polling thread on the parent
@@ -52,7 +52,7 @@ from tools.thread_context import propagate_context_to_thread
 # Availability gate.  On Windows we fall back to loopback TCP for the
 # sandbox RPC transport (AF_UNIX is unreliable on Windows Python) — see
 # ``_use_tcp_rpc`` in ``_execute_local`` below.  That makes execute_code
-# available on every platform Thot itself runs on.
+# available on every platform Naabiga itself runs on.
 logger = logging.getLogger(__name__)
 
 SANDBOX_AVAILABLE = True
@@ -77,14 +77,14 @@ MAX_STDERR_BYTES = 10_000    # 10 KB
 
 # Environment variable scrubbing rules (shared between the local + remote
 # backends).  Secret-substring block is applied first; anything left must
-# match a safe prefix, the operational THOT_ allowlist, or (on Windows) an
+# match a safe prefix, the operational NAABIGA_ allowlist, or (on Windows) an
 # OS-essential name.
 #
-# NB: the broad "THOT_" prefix was deliberately removed (#27303) — it leaked
-# THOT_*-named config that lacks a secret substring (e.g. THOT_BASE_URL,
-# THOT_KANBAN_DB, THOT_*_WEBHOOK).  The child only needs the few
-# location/profile vars in _THOT_CHILD_ALLOWED below; THOT_RPC_SOCKET /
-# THOT_RPC_DIR / TZ / HOME are injected explicitly after scrubbing.
+# NB: the broad "NAABIGA_" prefix was deliberately removed (#27303) — it leaked
+# NAABIGA_*-named config that lacks a secret substring (e.g. NAABIGA_BASE_URL,
+# NAABIGA_KANBAN_DB, NAABIGA_*_WEBHOOK).  The child only needs the few
+# location/profile vars in _NAABIGA_CHILD_ALLOWED below; NAABIGA_RPC_SOCKET /
+# NAABIGA_RPC_DIR / TZ / HOME are injected explicitly after scrubbing.
 _SAFE_ENV_PREFIXES = ("PATH", "HOME", "USER", "LANG", "LC_", "TERM",
                       "TMPDIR", "TMP", "TEMP", "SHELL", "LOGNAME",
                       "XDG_", "PYTHONPATH", "VIRTUAL_ENV", "CONDA")
@@ -100,15 +100,15 @@ _SECRET_SUBSTRINGS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL",
                       # PASSWORD/PASSWD already cover the credential cases.
                       "CREDS", "BEARER", "APIKEY")
 
-# Operational THOT_* vars the child legitimately needs by exact name — these
-# are non-secret runtime-location flags (the same set thot_cli treats as the
+# Operational NAABIGA_* vars the child legitimately needs by exact name — these
+# are non-secret runtime-location flags (the same set naabiga_cli treats as the
 # runtime location) that repo-root modules a sandbox script imports may read at
 # import time.  None match _SECRET_SUBSTRINGS.
-_THOT_CHILD_ALLOWED = frozenset({
-    "THOT_HOME",
-    "THOT_PROFILE",
-    "THOT_CONFIG",
-    "THOT_ENV",
+_NAABIGA_CHILD_ALLOWED = frozenset({
+    "NAABIGA_HOME",
+    "NAABIGA_PROFILE",
+    "NAABIGA_CONFIG",
+    "NAABIGA_ENV",
 })
 
 # Windows-only: a handful of variables are required by the OS/CRT itself.
@@ -150,7 +150,7 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
       1. Passthrough vars (skill- or config-declared) always pass.
       2. Secret-substring names (KEY/TOKEN/DSN/WEBHOOK/etc.) are blocked.
       3. Names matching a safe prefix pass.
-      4. Operational THOT_* vars (_THOT_CHILD_ALLOWED) pass by exact name.
+      4. Operational NAABIGA_* vars (_NAABIGA_CHILD_ALLOWED) pass by exact name.
       5. On Windows, a small OS-essential allowlist passes by exact name
          — without these the child can't even create a socket or spawn a
          subprocess.
@@ -168,14 +168,14 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
         is_windows = _IS_WINDOWS
 
     scrubbed = {}
-    # Non-secret THOT_* vars dropped by the tightened allowlist (#27303). The
-    # broad "THOT_" prefix used to pass these through; now only the
+    # Non-secret NAABIGA_* vars dropped by the tightened allowlist (#27303). The
+    # broad "NAABIGA_" prefix used to pass these through; now only the
     # operational set does. The drop is intentional (those vars can carry
-    # config like THOT_KANBAN_DB / THOT_BASE_URL), but a sandbox script
+    # config like NAABIGA_KANBAN_DB / NAABIGA_BASE_URL), but a sandbox script
     # that imports a repo module reading one at import time would otherwise see
     # it silently unset. Surface the drop once so the behavior change is
     # diagnosable and points at the env_passthrough opt-in escape hatch.
-    _dropped_thot = []
+    _dropped_naabiga = []
     for k, v in source_env.items():
         if is_passthrough(k):
             scrubbed[k] = v
@@ -185,24 +185,24 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
         if any(k.startswith(p) for p in _SAFE_ENV_PREFIXES):
             scrubbed[k] = v
             continue
-        if k in _THOT_CHILD_ALLOWED:
+        if k in _NAABIGA_CHILD_ALLOWED:
             scrubbed[k] = v
             continue
         if is_windows and k.upper() in _WINDOWS_ESSENTIAL_ENV_VARS:
             scrubbed[k] = v
             continue
-        if k.startswith("THOT_"):
+        if k.startswith("NAABIGA_"):
             # Non-secret (secrets were already dropped above) and not in any
-            # allowlist — a deliberately-dropped THOT_* var.
-            _dropped_thot.append(k)
-    if _dropped_thot:
+            # allowlist — a deliberately-dropped NAABIGA_* var.
+            _dropped_naabiga.append(k)
+    if _dropped_naabiga:
         logger.debug(
-            "execute_code: dropped %d non-allowlisted THOT_* var(s) from the "
+            "execute_code: dropped %d non-allowlisted NAABIGA_* var(s) from the "
             "sandbox child env (%s). This is intentional hardening (#27303); if "
             "a sandbox script legitimately needs one, declare it via "
             "env_passthrough in the skill/config so it passes by explicit opt-in.",
-            len(_dropped_thot),
-            ", ".join(sorted(_dropped_thot)),
+            len(_dropped_naabiga),
+            ", ".join(sorted(_dropped_naabiga)),
         )
     return scrubbed
 
@@ -215,7 +215,7 @@ def check_sandbox_requirements() -> bool:
 
 
 # ---------------------------------------------------------------------------
-# thot_tools.py code generator
+# naabiga_tools.py code generator
 # ---------------------------------------------------------------------------
 
 # Per-tool stub templates: (function_name, signature, docstring, args_dict_expr)
@@ -242,7 +242,7 @@ _TOOL_STUBS = {
     "write_file": (
         "write_file",
         "path: str, content: str, cross_profile: bool = False",
-        '"""Write content to a file (always overwrites). Returns dict with status. cross_profile=True opts out of the cross-Thot-profile soft guard."""',
+        '"""Write content to a file (always overwrites). Returns dict with status. cross_profile=True opts out of the cross-Naabiga-profile soft guard."""',
         '{"path": path, "content": content, "cross_profile": cross_profile}',
     ),
     "search_files": (
@@ -254,7 +254,7 @@ _TOOL_STUBS = {
     "patch": (
         "patch",
         'path: str = None, old_string: str = None, new_string: str = None, replace_all: bool = False, mode: str = "replace", patch: str = None, cross_profile: bool = False',
-        '"""Targeted find-and-replace (mode="replace") or V4A multi-file patches (mode="patch"). Returns dict with status. cross_profile=True opts out of the cross-Thot-profile soft guard."""',
+        '"""Targeted find-and-replace (mode="replace") or V4A multi-file patches (mode="patch"). Returns dict with status. cross_profile=True opts out of the cross-Naabiga-profile soft guard."""',
         '{"path": path, "old_string": old_string, "new_string": new_string, "replace_all": replace_all, "mode": mode, "patch": patch, "cross_profile": cross_profile}',
     ),
     "terminal": (
@@ -266,10 +266,10 @@ _TOOL_STUBS = {
 }
 
 
-def generate_thot_tools_module(enabled_tools: List[str],
+def generate_naabiga_tools_module(enabled_tools: List[str],
                                  transport: str = "uds") -> str:
     """
-    Build the source code for the thot_tools.py stub module.
+    Build the source code for the naabiga_tools.py stub module.
 
     Only tools in both SANDBOX_ALLOWED_TOOLS and enabled_tools get stubs.
 
@@ -344,7 +344,7 @@ def retry(fn, max_attempts=3, delay=2):
 # ---- UDS transport (local backend) ---------------------------------------
 
 _UDS_TRANSPORT_HEADER = '''\
-"""Auto-generated Thot tools RPC stubs."""
+"""Auto-generated Naabiga tools RPC stubs."""
 import json, os, socket, shlex, threading, time
 
 _sock = None
@@ -358,7 +358,7 @@ _call_lock = threading.Lock()
 def _connect():
     """Connect to the parent's RPC server via the transport it picked.
 
-    THOT_RPC_SOCKET can be either:
+    NAABIGA_RPC_SOCKET can be either:
       - a filesystem path (POSIX Unix domain socket — the default on
         Linux and macOS)
       - a string of the form ``tcp://127.0.0.1:<port>`` (Windows, where
@@ -366,7 +366,7 @@ def _connect():
     """
     global _sock
     if _sock is None:
-        endpoint = os.environ["THOT_RPC_SOCKET"]
+        endpoint = os.environ["NAABIGA_RPC_SOCKET"]
         if endpoint.startswith("tcp://"):
             # tcp://host:port  (host is always 127.0.0.1 in practice — we
             # only bind loopback server-side)
@@ -385,7 +385,7 @@ def _call(tool_name, args):
     request = json.dumps({
         "tool": tool_name,
         "args": args,
-        "token": os.environ.get("THOT_RPC_TOKEN", ""),
+        "token": os.environ.get("NAABIGA_RPC_TOKEN", ""),
     }) + "\\n"
     with _call_lock:
         conn = _connect()
@@ -412,10 +412,10 @@ def _call(tool_name, args):
 # ---- File-based transport (remote backends) -------------------------------
 
 _FILE_TRANSPORT_HEADER = '''\
-"""Auto-generated Thot tools RPC stubs (file-based transport)."""
+"""Auto-generated Naabiga tools RPC stubs (file-based transport)."""
 import json, os, shlex, tempfile, threading, time
 
-_RPC_DIR = os.environ.get("THOT_RPC_DIR") or os.path.join(tempfile.gettempdir(), "thot_rpc")
+_RPC_DIR = os.environ.get("NAABIGA_RPC_DIR") or os.path.join(tempfile.gettempdir(), "naabiga_rpc")
 _seq = 0
 # `_seq += 1` is not atomic (read-modify-write), so concurrent _call()
 # invocations from multiple threads could allocate the same sequence number
@@ -443,7 +443,7 @@ def _call(tool_name, args):
             "tool": tool_name,
             "args": args,
             "seq": seq,
-            "token": os.environ.get("THOT_RPC_TOKEN", ""),
+            "token": os.environ.get("NAABIGA_RPC_TOKEN", ""),
         }, f)
     os.rename(tmp, req_file)
 
@@ -917,7 +917,7 @@ def _execute_remote(
 ) -> str:
     """Run a script on the remote terminal backend via file-based RPC.
 
-    The script and the generated thot_tools.py module are shipped to
+    The script and the generated naabiga_tools.py module are shipped to
     the remote environment, and tool calls are proxied through a polling
     thread that communicates via request/response files.
     """
@@ -936,7 +936,7 @@ def _execute_remote(
 
     sandbox_id = uuid.uuid4().hex[:12]
     temp_dir = _env_temp_dir(env)
-    sandbox_dir = f"{temp_dir}/thot_exec_{sandbox_id}"
+    sandbox_dir = f"{temp_dir}/naabiga_exec_{sandbox_id}"
     quoted_sandbox_dir = shlex.quote(sandbox_dir)
     quoted_rpc_dir = shlex.quote(f"{sandbox_dir}/rpc")
 
@@ -972,10 +972,10 @@ def _execute_remote(
         rpc_token = secrets.token_urlsafe(32)
 
         # Generate and ship files
-        tools_src = generate_thot_tools_module(
+        tools_src = generate_naabiga_tools_module(
             list(sandbox_tools), transport="file",
         )
-        _ship_file_to_remote(env, f"{sandbox_dir}/thot_tools.py", tools_src)
+        _ship_file_to_remote(env, f"{sandbox_dir}/naabiga_tools.py", tools_src)
         _ship_file_to_remote(env, f"{sandbox_dir}/script.py", code)
 
         # Wrapped so the thread inherits the turn's approval context + callbacks
@@ -994,11 +994,11 @@ def _execute_remote(
 
         # Build environment variable prefix for the script
         env_prefix = (
-            f"THOT_RPC_DIR={shlex.quote(f'{sandbox_dir}/rpc')} "
-            f"THOT_RPC_TOKEN={shlex.quote(rpc_token)} "
+            f"NAABIGA_RPC_DIR={shlex.quote(f'{sandbox_dir}/rpc')} "
+            f"NAABIGA_RPC_TOKEN={shlex.quote(rpc_token)} "
             f"PYTHONDONTWRITEBYTECODE=1"
         )
-        tz = os.getenv("THOT_TIMEZONE", "").strip()
+        tz = os.getenv("NAABIGA_TIMEZONE", "").strip()
         if tz:
             env_prefix += f" TZ={shlex.quote(tz)}"
 
@@ -1119,7 +1119,7 @@ def execute_code(
 ) -> str:
     """
     Run a Python script in a sandboxed child process with RPC access
-    to a subset of Thot tools.
+    to a subset of Naabiga tools.
 
     Dispatches to the local (UDS) or remote (file-based RPC) path
     depending on the configured terminal backend.
@@ -1196,8 +1196,8 @@ def execute_code(
     if not sandbox_tools:
         sandbox_tools = SANDBOX_ALLOWED_TOOLS
 
-    # --- Set up temp directory with thot_tools.py and script.py ---
-    tmpdir = tempfile.mkdtemp(prefix="thot_sandbox_")
+    # --- Set up temp directory with naabiga_tools.py and script.py ---
+    tmpdir = tempfile.mkdtemp(prefix="naabiga_sandbox_")
     # Use /tmp on macOS to avoid the long /var/folders/... path that pushes
     # Unix domain socket paths past the 104-byte macOS AF_UNIX limit.
     # On Linux, tempfile.gettempdir() already returns /tmp.
@@ -1208,14 +1208,14 @@ def execute_code(
     # on the same temp drive as the script).  Fall back to loopback TCP —
     # same ephemeral port, same 1-connection listen queue, same serialized
     # request/response framing.  The generated client reads the transport
-    # selector from THOT_RPC_SOCKET (path vs. ``tcp://host:port``).
+    # selector from NAABIGA_RPC_SOCKET (path vs. ``tcp://host:port``).
     _sock_tmpdir = "/tmp" if sys.platform == "darwin" else tempfile.gettempdir()
     _use_tcp_rpc = _IS_WINDOWS
     if _use_tcp_rpc:
         sock_path = None  # not used on Windows; TCP endpoint stored below
         rpc_endpoint = None  # set after bind()
     else:
-        sock_path = os.path.join(_sock_tmpdir, f"thot_rpc_{uuid.uuid4().hex}.sock")
+        sock_path = os.path.join(_sock_tmpdir, f"naabiga_rpc_{uuid.uuid4().hex}.sock")
         rpc_endpoint = sock_path
 
     tool_call_log: list = []
@@ -1225,7 +1225,7 @@ def execute_code(
     stop_event = threading.Event()
 
     try:
-        # Write the auto-generated thot_tools module.
+        # Write the auto-generated naabiga_tools module.
         # encoding="utf-8" is required on Windows — the stub and user code
         # both contain non-ASCII characters (em-dashes in docstrings, plus
         # whatever the user script carries).  Python's default open() uses
@@ -1235,8 +1235,8 @@ def execute_code(
         # Python source files are decoded as UTF-8 by default (PEP 3120).
         # sandbox_tools is already the correct set (intersection with session
         # tools, or SANDBOX_ALLOWED_TOOLS as fallback — see lines above).
-        tools_src = generate_thot_tools_module(list(sandbox_tools))
-        with open(os.path.join(tmpdir, "thot_tools.py"), "w", encoding="utf-8") as f:
+        tools_src = generate_naabiga_tools_module(list(sandbox_tools))
+        with open(os.path.join(tmpdir, "naabiga_tools.py"), "w", encoding="utf-8") as f:
             f.write(tools_src)
 
         # Write the user's script
@@ -1251,7 +1251,7 @@ def execute_code(
         #   Windows: AF_INET stream socket on 127.0.0.1 with an ephemeral
         #   port.  No filesystem permission story, but loopback-only bind
         #   means only the current user's processes (not remote) can
-        #   connect.  THOT_RPC_SOCKET is set to ``tcp://127.0.0.1:<port>``
+        #   connect.  NAABIGA_RPC_SOCKET is set to ``tcp://127.0.0.1:<port>``
         #   which the generated client parses to pick AF_INET.
         if _use_tcp_rpc:
             server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1288,8 +1288,8 @@ def execute_code(
         # passed through — without those, the child can't create a socket
         # or spawn a subprocess.  See ``_scrub_child_env`` for the rules.
         child_env = _scrub_child_env(os.environ)
-        child_env["THOT_RPC_SOCKET"] = rpc_endpoint
-        child_env["THOT_RPC_TOKEN"] = rpc_token
+        child_env["NAABIGA_RPC_SOCKET"] = rpc_endpoint
+        child_env["NAABIGA_RPC_TOKEN"] = rpc_token
         child_env["PYTHONDONTWRITEBYTECODE"] = "1"
         # Force UTF-8 for the child's stdio and default file encoding.
         #
@@ -1310,26 +1310,26 @@ def execute_code(
         # with a C/POSIX locale (containers, minimal base images).
         child_env["PYTHONIOENCODING"] = "utf-8"
         child_env["PYTHONUTF8"] = "1"
-        # Ensure the thot-agent root is importable in the sandbox so
+        # Ensure the naabiga-agent root is importable in the sandbox so
         # repo-root modules are available to child scripts.  We also prepend
-        # the staging tmpdir so ``from thot_tools import ...`` resolves even
+        # the staging tmpdir so ``from naabiga_tools import ...`` resolves even
         # when the subprocess CWD is not tmpdir (project mode).
-        _thot_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _naabiga_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         _existing_pp = child_env.get("PYTHONPATH", "")
-        _pp_parts = [tmpdir, _thot_root]
+        _pp_parts = [tmpdir, _naabiga_root]
         if _existing_pp:
             _pp_parts.append(_existing_pp)
         child_env["PYTHONPATH"] = os.pathsep.join(_pp_parts)
         # Inject user's configured timezone so datetime.now() in sandboxed
         # code reflects the correct wall-clock time.  Only TZ is set —
-        # THOT_TIMEZONE is an internal Thot setting and must not leak
+        # NAABIGA_TIMEZONE is an internal Naabiga setting and must not leak
         # into child processes.
-        _tz_name = os.getenv("THOT_TIMEZONE", "").strip()
+        _tz_name = os.getenv("NAABIGA_TIMEZONE", "").strip()
         if _tz_name:
             child_env["TZ"] = _tz_name
-        child_env.pop("THOT_TIMEZONE", None)
+        child_env.pop("NAABIGA_TIMEZONE", None)
 
-        from thot_constants import apply_subprocess_home_env
+        from naabiga_constants import apply_subprocess_home_env
         apply_subprocess_home_env(child_env)
 
         # Resolve interpreter + CWD based on execute_code mode.
@@ -1498,7 +1498,7 @@ def execute_code(
 
         # Redact secrets (API keys, tokens, etc.) from sandbox output.
         # The sandbox env-var filter (lines 434-454) blocks os.environ access,
-        # but scripts can still read secrets from disk (e.g. open('~/.thot/.env')).
+        # but scripts can still read secrets from disk (e.g. open('~/.naabiga/.env')).
         # This ensures leaked secrets never enter the model context.
         # code_file=True: this is code-execution output — skip false-positive
         # ENV/JSON/f-string-template redaction; real credentials still masked.
@@ -1631,12 +1631,12 @@ def _load_config() -> dict:
     This helper is called while building the module-level execute_code schema
     during tool discovery.  Importing ``cli`` here pulls prompt_toolkit/Rich and
     a large chunk of the classic REPL onto every agent startup path, including
-    ``thot --tui`` where it is never used.  Read the lightweight raw config
+    ``naabiga --tui`` where it is never used.  Read the lightweight raw config
     instead; the config layer already caches by (mtime, size), and an absent
     key cleanly falls back to DEFAULT_EXECUTION_MODE.
     """
     try:
-        from thot_cli.config import read_raw_config
+        from naabiga_cli.config import read_raw_config
 
         cfg = read_raw_config().get("code_execution", {})
         return cfg if isinstance(cfg, dict) else {}
@@ -1665,7 +1665,7 @@ def _get_execution_mode() -> str:
         with the active virtual environment's python, so project dependencies
         (pandas, torch, project packages) and files resolve naturally.
       - ``strict``: scripts run in an isolated temp directory with
-        ``sys.executable`` (thot-agent's python). Reproducible and the
+        ``sys.executable`` (naabiga-agent's python). Reproducible and the
         interpreter is guaranteed to work, but project deps and relative paths
         won't resolve.
 
@@ -1803,7 +1803,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
                               mode: str = None) -> dict:
     """Build the execute_code schema with description listing only enabled tools.
 
-    When tools are disabled via ``thot tools`` (e.g. web is turned off),
+    When tools are disabled via ``naabiga tools`` (e.g. web is turned off),
     the schema description should NOT mention web_search / web_extract —
     otherwise the model thinks they are available and keeps trying to use them.
 
@@ -1834,11 +1834,11 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
 
     # Mode-specific CWD guidance. Project mode is the default and matches
     # terminal()'s filesystem/interpreter; strict mode retains the isolated
-    # temp-dir staging and thot-agent's own python.
+    # temp-dir staging and naabiga-agent's own python.
     if mode == "strict":
         cwd_note = (
             "Scripts run in their own temp dir, not the session's CWD — use absolute paths "
-            "(os.path.expanduser('~/.thot/.env')) or terminal()/read_file() for user files."
+            "(os.path.expanduser('~/.naabiga/.env')) or terminal()/read_file() for user files."
         )
     else:
         cwd_note = (
@@ -1847,7 +1847,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
         )
 
     description = (
-        "Run a Python script that can call Thot tools programmatically. "
+        "Run a Python script that can call Naabiga tools programmatically. "
         "Use this when you need 3+ tool calls with processing logic between them, "
         "need to filter/reduce large tool outputs before they enter your context, "
         "need conditional branching (if X then Y else Z), or need to loop "
@@ -1855,14 +1855,14 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
         "Use normal tool calls instead when: single tool call with no processing, "
         "you need to see the full result and apply complex reasoning, "
         "or the task requires interactive user input.\n\n"
-        f"Available via `from thot_tools import ...`:\n\n"
+        f"Available via `from naabiga_tools import ...`:\n\n"
         f"{tool_lines}\n\n"
         "Limits: 5-minute timeout, 50KB stdout cap, max 50 tool calls per script. "
         "terminal() is foreground-only (no background or pty).\n\n"
         f"{cwd_note}\n\n"
         "Print your final result to stdout. Use Python stdlib (json, re, math, csv, "
         "datetime, collections, etc.) for processing between tool calls.\n\n"
-        "Also available (no import needed — built into thot_tools):\n"
+        "Also available (no import needed — built into naabiga_tools):\n"
         "  json_parse(text: str) — json.loads with strict=False; use for terminal() output with control chars\n"
         "  shell_quote(s: str) — shlex.quote(); use when interpolating dynamic strings into shell commands\n"
         "  retry(fn, max_attempts=3, delay=2) — retry with exponential backoff for transient failures"
@@ -1878,7 +1878,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
                     "type": "string",
                     "description": (
                         "Python code to execute. Import tools with "
-                        f"`from thot_tools import {import_str}` "
+                        f"`from naabiga_tools import {import_str}` "
                         "and print your final result to stdout."
                     ),
                 },

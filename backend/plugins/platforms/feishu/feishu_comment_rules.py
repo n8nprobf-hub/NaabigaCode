@@ -3,8 +3,8 @@ Feishu document comment access-control rules.
 
 3-tier rule resolution: exact doc > wildcard "*" > top-level > code defaults.
 Each field (enabled/policy/allow_from) falls back independently.
-Config: ~/.thot/feishu_comment_rules.json (mtime-cached, hot-reload).
-Pairing store: ~/.thot/feishu_comment_pairing.json.
+Config: ~/.naabiga/feishu_comment_rules.json (mtime-cached, hot-reload).
+Pairing store: ~/.naabiga/feishu_comment_pairing.json.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 #
-# Uses the canonical ``get_thot_home()`` helper (THOT_HOME-aware and
+# Uses the canonical ``get_naabiga_home()`` helper (NAABIGA_HOME-aware and
 # profile-safe). Resolved at import time; this module is lazy-imported by
 # the Feishu comment event handler, which runs long after profile overrides
 # have been applied, so freezing paths here is safe.
 
-RULES_FILE = get_thot_home() / "feishu_comment_rules.json"
-PAIRING_FILE = get_thot_home() / "feishu_comment_pairing.json"
+RULES_FILE = get_naabiga_home() / "feishu_comment_rules.json"
+PAIRING_FILE = get_naabiga_home() / "feishu_comment_pairing.json"
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -351,8 +351,8 @@ def _main() -> int:
     import sys
 
     try:
-        from thot_cli.env_loader import load_thot_dotenv
-        load_thot_dotenv()
+        from naabiga_cli.env_loader import load_naabiga_dotenv
+        load_naabiga_dotenv()
     except Exception:
         pass
 

@@ -28,13 +28,13 @@ from typing import List, Dict, Any, Set, Optional
 
 # Shared tool list for CLI and all messaging platform toolsets.
 # Edit this once to update all platforms simultaneously.
-_THOT_CORE_TOOLS = [
+_NAABIGA_CORE_TOOLS = [
     # Web
     "web_search", "web_extract",
     # Terminal + process management
     "terminal", "process",
     # Read the desktop GUI's embedded terminal pane, and close an agent's
-    # read-only terminal tab (both gated on THOT_DESKTOP via check_fn —
+    # read-only terminal tab (both gated on NAABIGA_DESKTOP via check_fn —
     # hidden outside the GUI).
     "read_terminal", "close_terminal",
     # File manipulation
@@ -68,7 +68,7 @@ _THOT_CORE_TOOLS = [
     # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
     "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
     # Kanban multi-agent coordination — only in schema when the agent is
-    # spawned as a kanban worker (THOT_KANBAN_TASK env set) or the current
+    # spawned as a kanban worker (NAABIGA_KANBAN_TASK env set) or the current
     # profile explicitly enables the kanban toolset. Gated via check_fn in
     # tools/kanban_tools.py.
     "kanban_show", "kanban_list",
@@ -82,7 +82,7 @@ _THOT_CORE_TOOLS = [
 # Webhook events may originate from untrusted third-party content (for example,
 # public PR titles/comments). Keep the default webhook toolset intentionally
 # constrained to avoid local file/system execution by prompt injection.
-_THOT_WEBHOOK_SAFE_TOOLS = [
+_NAABIGA_WEBHOOK_SAFE_TOOLS = [
     "web_search",
     "web_extract",
     "vision_analyze",
@@ -111,7 +111,7 @@ TOOLSETS = {
             "Search X (Twitter) posts and threads via xAI's built-in "
             "x_search Responses tool. Available when xAI credentials are "
             "configured (SuperGrok OAuth or XAI_API_KEY). Off by default; "
-            "enable in `thot tools` → X (Twitter) Search."
+            "enable in `naabiga tools` → X (Twitter) Search."
         ),
         "tools": ["x_search"],
         "includes": []
@@ -141,7 +141,7 @@ TOOLSETS = {
             "text-to-video (prompt only) and image-to-video (prompt + "
             "image_url), plus reference-to-video. Provider-specific edit/"
             "extend workflows may appear as separate tools. Configure via "
-            "``thot tools`` → Video Generation."
+            "``naabiga tools`` → Video Generation."
         ),
         "tools": ["video_generate", "xai_video_edit", "xai_video_extend"],
         "includes": []
@@ -260,7 +260,7 @@ TOOLSETS = {
     "kanban": {
         "description": (
             "Kanban multi-agent coordination — only active when the agent "
-            "is spawned by the kanban dispatcher (THOT_KANBAN_TASK env "
+            "is spawned by the kanban dispatcher (NAABIGA_KANBAN_TASK env "
             "set). The dispatcher runs inside the gateway by default; see "
             "`kanban.dispatch_in_gateway` in config.yaml. Lets workers mark "
             "tasks done with structured handoffs, block for human input, "
@@ -339,7 +339,7 @@ TOOLSETS = {
         "includes": ["web", "vision", "image_gen"]
     },
 
-    # Coding posture (base Thot — CLI/TUI/desktop/ACP). Auto-selected in a
+    # Coding posture (base Naabiga — CLI/TUI/desktop/ACP). Auto-selected in a
     # code workspace; see agent/coding_context.py. Keeps everything you reach
     # for while pairing on code and drops the rest (messaging, tts, image_gen,
     # spotify, home-assistant, cron, computer-use).
@@ -362,20 +362,20 @@ TOOLSETS = {
         "includes": [],
         # Posture toolset: selected per-session by agent/coding_context.py,
         # never auto-recovered into per-platform tool config (see the
-        # non-configurable-toolset recovery loop in thot_cli/tools_config.py).
+        # non-configurable-toolset recovery loop in naabiga_cli/tools_config.py).
         "posture": True,
     },
     
     # ==========================================================================
-    # Full Thot toolsets (CLI + messaging platforms)
+    # Full Naabiga toolsets (CLI + messaging platforms)
     #
     # All platforms share the same core tools. Note: agents do NOT get an
     # agent-callable send_message tool — outbound platform messaging is handled
     # outside the agent loop (cron delivery, the gateway kanban notifier, and
-    # the `thot send` CLI), not by the model deciding to send on its own.
+    # the `naabiga send` CLI), not by the model deciding to send on its own.
     # ==========================================================================
 
-    "thot-acp": {
+    "naabiga-acp": {
         "description": "Editor integration (VS Code, Zed, JetBrains) — coding-focused tools without messaging, audio, or clarify UI",
         "tools": [
             "web_search", "web_extract",
@@ -394,7 +394,7 @@ TOOLSETS = {
         "includes": []
     },
 
-    "thot-api-server": {
+    "naabiga-api-server": {
         "description": "OpenAI-compatible API server — full agent tools accessible via HTTP (no interactive UI tools like clarify or send_message)",
         "tools": [
             # Web
@@ -427,95 +427,95 @@ TOOLSETS = {
         "includes": []
     },
     
-    "thot-cli": {
+    "naabiga-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-cron": {
-        # Mirrors thot-cli so cron's "default" toolset is the same set of
-        # core tools users see interactively — then `thot tools` filters
+    "naabiga-cron": {
+        # Mirrors naabiga-cli so cron's "default" toolset is the same set of
+        # core tools users see interactively — then `naabiga tools` filters
         # them down per the platform config. _DEFAULT_OFF_TOOLSETS (moa,
         # homeassistant) are excluded by _get_platform_tools() unless
         # the user explicitly enables them.
-        "description": "Default cron toolset - same core tools as thot-cli; gated by `thot tools`",
-        "tools": _THOT_CORE_TOOLS,
+        "description": "Default cron toolset - same core tools as naabiga-cli; gated by `naabiga tools`",
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-telegram": {
+    "naabiga-telegram": {
         "description": "Telegram bot toolset - full access for personal use (terminal has safety checks)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
     
-    "thot-discord": {
+    "naabiga-discord": {
         "description": "Discord bot toolset - full access (terminal has safety checks via dangerous command approval)",
-        "tools": _THOT_CORE_TOOLS + [
+        "tools": _NAABIGA_CORE_TOOLS + [
             "discord",
             "discord_admin",
         ],
         "includes": []
     },
     
-    "thot-whatsapp": {
+    "naabiga-whatsapp": {
         "description": "WhatsApp bot toolset - similar to Telegram (personal messaging, more trusted)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
     
-    "thot-slack": {
+    "naabiga-slack": {
         "description": "Slack bot toolset - full access for workspace use (terminal has safety checks)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
     
-    "thot-signal": {
+    "naabiga-signal": {
         "description": "Signal bot toolset - encrypted messaging platform (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-bluebubbles": {
+    "naabiga-bluebubbles": {
         "description": "BlueBubbles iMessage bot toolset - Apple iMessage via local BlueBubbles server",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-homeassistant": {
+    "naabiga-homeassistant": {
         "description": "Home Assistant bot toolset - smart home event monitoring and control",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-email": {
-        "description": "Email bot toolset - interact with Thot via email (IMAP/SMTP)",
-        "tools": _THOT_CORE_TOOLS,
+    "naabiga-email": {
+        "description": "Email bot toolset - interact with Naabiga via email (IMAP/SMTP)",
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-mattermost": {
+    "naabiga-mattermost": {
         "description": "Mattermost bot toolset - self-hosted team messaging (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-matrix": {
+    "naabiga-matrix": {
         "description": "Matrix bot toolset - decentralized encrypted messaging (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-dingtalk": {
+    "naabiga-dingtalk": {
         "description": "DingTalk bot toolset - enterprise messaging platform (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-feishu": {
+    "naabiga-feishu": {
         "description": "Feishu/Lark bot toolset - enterprise messaging via Feishu/Lark (full access)",
-        "tools": _THOT_CORE_TOOLS + [
+        "tools": _NAABIGA_CORE_TOOLS + [
             "feishu_doc_read",
             "feishu_drive_list_comments",
             "feishu_drive_list_comment_replies",
@@ -525,33 +525,33 @@ TOOLSETS = {
         "includes": []
     },
 
-    "thot-weixin": {
+    "naabiga-weixin": {
         "description": "Weixin bot toolset - personal WeChat messaging via iLink (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-qqbot": {
+    "naabiga-qqbot": {
         "description": "QQBot toolset - QQ messaging via Official Bot API v2 (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-wecom": {
+    "naabiga-wecom": {
         "description": "WeCom bot toolset - enterprise WeChat messaging (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-wecom-callback": {
+    "naabiga-wecom-callback": {
         "description": "WeCom callback toolset - enterprise self-built app messaging (full access)",
-        "tools": _THOT_CORE_TOOLS,
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-yuanbao": {
+    "naabiga-yuanbao": {
         "description": "Yuanbao Bot 元宝消息平台工具集 - 群信息、成员查询、私聊、贴纸表情",
-        "tools": _THOT_CORE_TOOLS + [
+        "tools": _NAABIGA_CORE_TOOLS + [
             "yb_query_group_info",
             "yb_query_group_members",
             "yb_send_dm",
@@ -562,22 +562,22 @@ TOOLSETS = {
         "includes": []
     },
 
-    "thot-sms": {
-        "description": "SMS bot toolset - interact with Thot via SMS (Twilio)",
-        "tools": _THOT_CORE_TOOLS,
+    "naabiga-sms": {
+        "description": "SMS bot toolset - interact with Naabiga via SMS (Twilio)",
+        "tools": _NAABIGA_CORE_TOOLS,
         "includes": []
     },
 
-    "thot-webhook": {
+    "naabiga-webhook": {
         "description": "Webhook toolset - receive and process external webhook events",
-        "tools": _THOT_WEBHOOK_SAFE_TOOLS,
+        "tools": _NAABIGA_WEBHOOK_SAFE_TOOLS,
         "includes": []
     },
 
-    "thot-gateway": {
+    "naabiga-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["thot-telegram", "thot-discord", "thot-whatsapp", "thot-slack", "thot-signal", "thot-bluebubbles", "thot-homeassistant", "thot-email", "thot-sms", "thot-mattermost", "thot-matrix", "thot-dingtalk", "thot-feishu", "thot-wecom", "thot-wecom-callback", "thot-weixin", "thot-qqbot", "thot-webhook", "thot-yuanbao"]
+        "includes": ["naabiga-telegram", "naabiga-discord", "naabiga-whatsapp", "naabiga-slack", "naabiga-signal", "naabiga-bluebubbles", "naabiga-homeassistant", "naabiga-email", "naabiga-sms", "naabiga-mattermost", "naabiga-matrix", "naabiga-dingtalk", "naabiga-feishu", "naabiga-wecom", "naabiga-wecom-callback", "naabiga-weixin", "naabiga-qqbot", "naabiga-webhook", "naabiga-yuanbao"]
     }
 }
 
@@ -657,9 +657,9 @@ def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[st
 
 
 def bundle_non_core_tools(toolset_name: str) -> Set[str]:
-    """Return a ``thot-*`` bundle's platform-specific tools, excluding core.
+    """Return a ``naabiga-*`` bundle's platform-specific tools, excluding core.
 
-    Platform bundles are defined as ``_THOT_CORE_TOOLS + [platform extras]``.
+    Platform bundles are defined as ``_NAABIGA_CORE_TOOLS + [platform extras]``.
     When a bundle name appears in ``disabled_toolsets``, subtracting the whole
     bundle would strip core tools (terminal, read_file, …) shared by every
     other enabled toolset, emptying the model's tool list (#33924). This
@@ -667,12 +667,12 @@ def bundle_non_core_tools(toolset_name: str) -> Set[str]:
     one-level ``includes``), so disabling a bundle removes its platform tools
     while leaving core intact.
 
-    Bundle nesting is one level deep in practice (only ``thot-gateway``
+    Bundle nesting is one level deep in practice (only ``naabiga-gateway``
     includes other bundles, and those leaves don't nest further), so a single
     ``includes`` pass is sufficient. Unknown/garbage names fall back to the
     full resolution minus core — never re-introducing the core wipe.
     """
-    core = set(_THOT_CORE_TOOLS)
+    core = set(_NAABIGA_CORE_TOOLS)
     ts_def = get_toolset(toolset_name)
     if not (ts_def and "tools" in ts_def):
         return set(resolve_toolset(toolset_name)) - core
@@ -728,17 +728,17 @@ def resolve_toolset(name: str, visited: Set[str] = None, *, include_registry: bo
     # Get toolset definition
     toolset = get_toolset(name, include_registry=include_registry)
     if not toolset:
-        # Auto-generate a toolset for plugin platforms (thot-<name>).
-        # Gives them _THOT_CORE_TOOLS plus any tools the plugin registered
+        # Auto-generate a toolset for plugin platforms (naabiga-<name>).
+        # Gives them _NAABIGA_CORE_TOOLS plus any tools the plugin registered
         # into a toolset matching the platform name. This is a registry-derived
         # view, so it only applies when registry tools are requested; the static
         # view (include_registry=False) has no plugin-platform definition.
-        if include_registry and name.startswith("thot-"):
-            platform_name = name[len("thot-"):]
+        if include_registry and name.startswith("naabiga-"):
+            platform_name = name[len("naabiga-"):]
             try:
                 from gateway.platform_registry import platform_registry
                 if platform_registry.is_registered(platform_name):
-                    plugin_tools = set(_THOT_CORE_TOOLS)
+                    plugin_tools = set(_NAABIGA_CORE_TOOLS)
                     try:
                         from tools.registry import registry
                         plugin_tools.update(

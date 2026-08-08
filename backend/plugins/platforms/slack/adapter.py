@@ -414,7 +414,7 @@ class SlackAdapter(BasePlatformAdapter):
       - DMs and channel messages (mention-gated in channels)
       - Thread support
       - File/image/audio attachments
-      - Slash commands (/thot)
+      - Slash commands (/naabiga)
       - Typing indicators (not natively supported by Slack bots)
     """
 
@@ -880,7 +880,7 @@ class SlackAdapter(BasePlatformAdapter):
                     "and 'message.mpim' event. Add 'mpim:history' (and "
                     "'mpim:read') to bot scopes, add 'message.mpim' to event "
                     "subscriptions, then REINSTALL the app to the workspace. "
-                    "Regenerating the app from `thot slack` produces a "
+                    "Regenerating the app from `naabiga slack` produces a "
                     "manifest with these already included.",
                     team_key or "this workspace",
                 )
@@ -980,9 +980,9 @@ class SlackAdapter(BasePlatformAdapter):
         bot_tokens = [t.strip() for t in raw_token.split(",") if t.strip()]
 
         # Also load tokens from OAuth token file
-        from thot_constants import get_thot_home
+        from naabiga_constants import get_naabiga_home
 
-        tokens_file = get_thot_home() / "slack_tokens.json"
+        tokens_file = get_naabiga_home() / "slack_tokens.json"
         if tokens_file.exists():
             try:
                 saved = json.loads(tokens_file.read_text(encoding="utf-8"))
@@ -1115,7 +1115,7 @@ class SlackAdapter(BasePlatformAdapter):
                 pass
 
             # Reactions are useful lightweight acknowledgements in Slack, but
-            # Thot does not currently need to route them into the agent loop.
+            # Naabiga does not currently need to route them into the agent loop.
             # Ack the events explicitly so high-traffic channels do not fill
             # gateway.error.log with Slack Bolt "Unhandled request" warnings.
             @self._app.event("reaction_added")
@@ -1138,16 +1138,16 @@ class SlackAdapter(BasePlatformAdapter):
             #
             # Every gateway command from COMMAND_REGISTRY is a native Slack
             # slash, matching Discord and Telegram's model (e.g. /btw, /stop,
-            # /model work directly without /thot prefix). A single regex
+            # /model work directly without /naabiga prefix). A single regex
             # matcher dispatches all of them to one handler so we don't need
             # N identical @app.command() decorators.
             #
             # The slash commands must ALSO be declared in the Slack app
-            # manifest (see `thot slack manifest`). In Socket Mode, Slack
+            # manifest (see `naabiga slack manifest`). In Socket Mode, Slack
             # routes the command event through the socket regardless of the
             # manifest's request URL, but it will not deliver an event for
             # a slash command the manifest doesn't declare.
-            from thot_cli.commands import slack_native_slashes
+            from naabiga_cli.commands import slack_native_slashes
             import re as _re
 
             _slash_names = [name for name, _d, _h in slack_native_slashes()]
@@ -1156,10 +1156,10 @@ class SlackAdapter(BasePlatformAdapter):
                     r"^/(?:" + "|".join(_re.escape(n) for n in _slash_names) + r")$"
                 )
             else:  # pragma: no cover - registry always non-empty
-                _slash_pattern = _re.compile(r"^/thot$")
+                _slash_pattern = _re.compile(r"^/naabiga$")
 
             @self._app.command(_slash_pattern)
-            async def handle_thot_command(ack, command):
+            async def handle_naabiga_command(ack, command):
                 slash = (command.get("command") or "").lstrip("/")
                 await ack(
                     response_type="ephemeral",
@@ -1169,19 +1169,19 @@ class SlackAdapter(BasePlatformAdapter):
 
             # Register Block Kit action handlers for approval buttons
             for _action_id in (
-                "thot_approve_once",
-                "thot_approve_session",
-                "thot_approve_always",
-                "thot_deny",
+                "naabiga_approve_once",
+                "naabiga_approve_session",
+                "naabiga_approve_always",
+                "naabiga_deny",
             ):
                 self._app.action(_action_id)(self._handle_approval_action)
 
             # Register Block Kit action handlers for slash-confirm buttons
             # (generic three-option prompts; see tools/slash_confirm.py).
             for _action_id in (
-                "thot_confirm_once",
-                "thot_confirm_always",
-                "thot_confirm_cancel",
+                "naabiga_confirm_once",
+                "naabiga_confirm_always",
+                "naabiga_confirm_cancel",
             ):
                 self._app.action(_action_id)(self._handle_slash_confirm_action)
 
@@ -1196,7 +1196,7 @@ class SlackAdapter(BasePlatformAdapter):
             # down the gateway: any exception inside the plugin handler is
             # caught and logged, and slack_bolt still sees a clean ack.
             try:
-                from thot_cli.plugins import get_plugin_manager
+                from naabiga_cli.plugins import get_plugin_manager
                 _plugin_handlers = get_plugin_manager().get_slack_action_handlers()
             except Exception as e:  # pragma: no cover - defensive
                 logger.warning(
@@ -1291,7 +1291,7 @@ class SlackAdapter(BasePlatformAdapter):
             if client is None:
                 return None
             seed_text = (
-                f":thread: Thot handoff — *{(name or 'session').strip()[:80]}*"
+                f":thread: Naabiga handoff — *{(name or 'session').strip()[:80]}*"
             )
             result = await client.chat_postMessage(
                 channel=parent_chat_id,
@@ -1561,7 +1561,7 @@ class SlackAdapter(BasePlatformAdapter):
         """Whether top-level Slack DMs get per-message session threads.
 
         Defaults to ``True`` so each visible DM reply thread is isolated as its
-        own Thot session — matching the per-thread behavior channels already
+        own Naabiga session — matching the per-thread behavior channels already
         have.  Set ``platforms.slack.extra.dm_top_level_threads_as_sessions``
         to ``false`` in config.yaml to revert to the legacy behavior where all
         top-level DMs share one continuous session.
@@ -2630,11 +2630,11 @@ class SlackAdapter(BasePlatformAdapter):
         # so casual messages like "!nice work" pass through unchanged.
         if original_text.startswith("!"):
             try:
-                from thot_cli.commands import is_gateway_known_command
+                from naabiga_cli.commands import is_gateway_known_command
 
                 first_token = original_text[1:].split(maxsplit=1)[0]
                 # Strip "@suffix" the same way get_command() does, so
-                # forms like ``!stop@thot`` still resolve.
+                # forms like ``!stop@naabiga`` still resolve.
                 cmd_name = first_token.split("@", 1)[0].lower()
                 if (
                     cmd_name
@@ -3283,26 +3283,26 @@ class SlackAdapter(BasePlatformAdapter):
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Allow Once"},
                             "style": "primary",
-                            "action_id": "thot_approve_once",
+                            "action_id": "naabiga_approve_once",
                             "value": session_key,
                         },
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Allow Session"},
-                            "action_id": "thot_approve_session",
+                            "action_id": "naabiga_approve_session",
                             "value": session_key,
                         },
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Always Allow"},
-                            "action_id": "thot_approve_always",
+                            "action_id": "naabiga_approve_always",
                             "value": session_key,
                         },
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Deny"},
                             "style": "danger",
-                            "action_id": "thot_deny",
+                            "action_id": "naabiga_deny",
                             "value": session_key,
                         },
                     ],
@@ -3367,20 +3367,20 @@ class SlackAdapter(BasePlatformAdapter):
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Approve Once"},
                             "style": "primary",
-                            "action_id": "thot_confirm_once",
+                            "action_id": "naabiga_confirm_once",
                             "value": value,
                         },
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Always Approve"},
-                            "action_id": "thot_confirm_always",
+                            "action_id": "naabiga_confirm_always",
                             "value": value,
                         },
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "Cancel"},
                             "style": "danger",
-                            "action_id": "thot_confirm_cancel",
+                            "action_id": "naabiga_confirm_cancel",
                             "value": value,
                         },
                     ],
@@ -3493,9 +3493,9 @@ class SlackAdapter(BasePlatformAdapter):
         session_key, confirm_id = value.split("|", 1)
 
         choice_map = {
-            "thot_confirm_once": "once",
-            "thot_confirm_always": "always",
-            "thot_confirm_cancel": "cancel",
+            "naabiga_confirm_once": "once",
+            "naabiga_confirm_always": "always",
+            "naabiga_confirm_cancel": "cancel",
         }
         choice = choice_map.get(action_id, "cancel")
 
@@ -3609,10 +3609,10 @@ class SlackAdapter(BasePlatformAdapter):
 
         # Map action_id to approval choice
         choice_map = {
-            "thot_approve_once": "once",
-            "thot_approve_session": "session",
-            "thot_approve_always": "always",
-            "thot_deny": "deny",
+            "naabiga_approve_once": "once",
+            "naabiga_approve_session": "session",
+            "naabiga_approve_always": "always",
+            "naabiga_deny": "deny",
         }
         choice = choice_map.get(action_id, "deny")
 
@@ -3904,9 +3904,9 @@ class SlackAdapter(BasePlatformAdapter):
         Discord and Telegram model. The slash name itself is the command;
         any text after it is the argument list.
 
-        The legacy ``/thot <subcommand> [args]`` form is preserved for
+        The legacy ``/naabiga <subcommand> [args]`` form is preserved for
         backward compatibility with older workspace manifests and for users
-        who want a single entry point for free-form questions (``/thot
+        who want a single entry point for free-form questions (``/naabiga
         what's the weather`` — non-slash text is treated as a regular
         message).
         """
@@ -3920,16 +3920,16 @@ class SlackAdapter(BasePlatformAdapter):
         if team_id and channel_id:
             self._channel_team[channel_id] = team_id
 
-        if slash_name in {"thot", ""}:
-            # Legacy /thot <subcommand> [args] routing + free-form questions.
+        if slash_name in {"naabiga", ""}:
+            # Legacy /naabiga <subcommand> [args] routing + free-form questions.
             # Empty slash_name falls into this branch for backward compat
             # with any caller that didn't populate command["command"].
-            from thot_cli.commands import slack_subcommand_map
+            from naabiga_cli.commands import slack_subcommand_map
 
             subcommand_map = slack_subcommand_map()
             subcommand_map["compact"] = "/compress"
             # Guard against whitespace-only text where ``text`` is truthy but
-            # ``text.split()`` returns ``[]`` (e.g. user sends ``/thot   ``).
+            # ``text.split()`` returns ``[]`` (e.g. user sends ``/naabiga   ``).
             parts = text.split() if text else []
             first_word = parts[0] if parts else ""
             if first_word in subcommand_map:
@@ -3970,9 +3970,9 @@ class SlackAdapter(BasePlatformAdapter):
 
         # Stash the Slack response_url so the first reply for this
         # channel+user can be routed ephemerally (replaces the initial
-        # "Running /cmd…" ack shown by handle_thot_command).
+        # "Running /cmd…" ack shown by handle_naabiga_command).
         # Only stash for COMMAND events (text starts with "/") — free-form
-        # questions via "/thot <question>" must produce public replies so
+        # questions via "/naabiga <question>" must produce public replies so
         # the whole channel can see the agent's answer.
         response_url = command.get("response_url", "")
         if response_url and user_id and channel_id and text.startswith("/"):
@@ -4289,7 +4289,7 @@ class SlackAdapter(BasePlatformAdapter):
 # the per-platform core touchpoints (the ``Platform.SLACK`` elif in
 # ``gateway/run.py``, the ``slack_cfg`` YAML→env block in ``gateway/config.py``,
 # the ``_setup_slack`` wizard + ``_PLATFORMS["slack"]`` static dict in
-# ``thot_cli/{setup,gateway}.py``, and the ``_send_slack`` dispatch in
+# ``naabiga_cli/{setup,gateway}.py``, and the ``_send_slack`` dispatch in
 # ``tools/send_message_tool.py``).
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -4372,11 +4372,11 @@ def interactive_setup() -> None:
     Mirrors Discord's ``interactive_setup`` shape: lazy-imports CLI helpers so
     the plugin's import surface stays small, generates and writes the Slack app
     manifest, prompts for the bot + app tokens, captures an allowlist, and
-    offers to set a home channel. Replaces ``thot_cli/setup.py::_setup_slack``.
+    offers to set a home channel. Replaces ``naabiga_cli/setup.py::_setup_slack``.
     """
     from pathlib import Path
-    from thot_cli.config import get_env_value, save_env_value
-    from thot_cli.cli_output import (
+    from naabiga_cli.config import get_env_value, save_env_value
+    from naabiga_cli.cli_output import (
         prompt,
         prompt_yes_no,
         print_header,
@@ -4386,18 +4386,18 @@ def interactive_setup() -> None:
     )
 
     def _write_slack_manifest_and_instruct() -> None:
-        """Generate the Slack manifest, write it under THOT_HOME, and print
+        """Generate the Slack manifest, write it under NAABIGA_HOME, and print
         paste-into-Slack instructions. Failures are non-fatal."""
         try:
-            from thot_cli.slack_cli import _build_full_manifest
-            from thot_constants import get_thot_home
+            from naabiga_cli.slack_cli import _build_full_manifest
+            from naabiga_constants import get_naabiga_home
             import json as _json
 
             manifest = _build_full_manifest(
-                bot_name="Thot",
-                bot_description="Votre agent Thot sur Slack",
+                bot_name="Naabiga",
+                bot_description="Votre agent Naabiga sur Slack",
             )
-            target = Path(get_thot_home()) / "slack-manifest.json"
+            target = Path(get_naabiga_home()) / "slack-manifest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(
                 _json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
@@ -4410,8 +4410,8 @@ def interactive_setup() -> None:
                 "reinstall if scopes or slash commands changed."
             )
             print_info(
-                "   Re-run `thot slack manifest --write` anytime to refresh after "
-                "Thot adds new commands."
+                "   Re-run `naabiga slack manifest --write` anytime to refresh after "
+                "Naabiga adds new commands."
             )
         except Exception as e:
             print_warning(f"Could not write Slack manifest: {e}")
@@ -4425,7 +4425,7 @@ def interactive_setup() -> None:
             # new commands (e.g. /btw, /stop, ...) get registered in Slack.
             if prompt_yes_no(
                 "Regenerate the Slack app manifest with the latest command "
-                "list? (recommended after `thot update`)",
+                "list? (recommended after `naabiga update`)",
                 True,
             ):
                 _write_slack_manifest_and_instruct()
@@ -4439,7 +4439,7 @@ def interactive_setup() -> None:
     print_info("   3. Install to Workspace: Settings → Install App")
     print_info("   4. After installing, invite the bot to channels: /invite @YourBot")
     print()
-    print_info("   Full guide: https://github.com/n8nprobf-hub/Thot#readme")
+    print_info("   Full guide: https://github.com/n8nprobf-hub/Naabiga#readme")
     print()
 
     # Generate and write manifest up-front so the user can paste it into
@@ -4472,7 +4472,7 @@ def interactive_setup() -> None:
         print_info("   Set SLACK_ALLOW_ALL_USERS=true or GATEWAY_ALLOW_ALL_USERS=true only if you intentionally want open workspace access.")
 
     print()
-    print_info("📬 Home Channel: where Thot delivers cron job results,")
+    print_info("📬 Home Channel: where Naabiga delivers cron job results,")
     print_info("   cross-platform messages, and notifications.")
     print_info("   To get a channel ID: open the channel in Slack, then right-click")
     print_info("   the channel name → Copy link — the ID starts with C (e.g. C01ABC2DE3F).")
@@ -4522,12 +4522,12 @@ def _apply_yaml_config(yaml_cfg: dict, slack_cfg: dict) -> dict | None:
 def _is_connected(config) -> bool:
     """Slack is considered connected when SLACK_BOT_TOKEN is set.
 
-    Looks up via ``thot_cli.gateway.get_env_value`` at call time (not via the
+    Looks up via ``naabiga_cli.gateway.get_env_value`` at call time (not via the
     plugin's own bound import) so tests that patch ``gateway_mod.get_env_value``
     can suppress ambient ``SLACK_BOT_TOKEN`` env vars. Matches what the legacy
     ``Platform.SLACK`` connected-check did before this migration.
     """
-    import thot_cli.gateway as gateway_mod
+    import naabiga_cli.gateway as gateway_mod
 
     return bool((gateway_mod.get_env_value("SLACK_BOT_TOKEN") or "").strip())
 
@@ -4538,7 +4538,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system."""
+    """Plugin entry point — called by the Naabiga plugin system."""
     ctx.register_platform(
         name="slack",
         label="Slack",
@@ -4546,9 +4546,9 @@ def register(ctx) -> None:
         check_fn=check_slack_requirements,
         is_connected=_is_connected,
         required_env=["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN"],
-        install_hint="pip install 'thot-agent[slack]'",
-        # Interactive setup wizard — replaces thot_cli/setup.py::_setup_slack
-        # and the static _PLATFORMS["slack"] dict in thot_cli/gateway.py.
+        install_hint="pip install 'naabiga-agent[slack]'",
+        # Interactive setup wizard — replaces naabiga_cli/setup.py::_setup_slack
+        # and the static _PLATFORMS["slack"] dict in naabiga_cli/gateway.py.
         setup_fn=interactive_setup,
         # YAML→env config bridge — owns the translation of config.yaml slack:
         # keys (require_mention, strict_mention, allow_bots,

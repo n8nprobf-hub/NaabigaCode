@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Skills Hub — Source adapters and hub state management for the Thot Skills Hub.
+Skills Hub — Source adapters and hub state management for the Naabiga Skills Hub.
 
 This is a library module (not an agent tool). It provides:
   - GitHubAuth: Shared GitHub API authentication (PAT, gh CLI, GitHub App)
@@ -10,7 +10,7 @@ This is a library module (not an agent tool). It provides:
   - HubLockFile: Track provenance of installed hub skills
   - Hub state directory management (quarantine, audit log, taps, index cache)
 
-Used by thot_cli/skills_hub.py for CLI commands and the /skills slash command.
+Used by naabiga_cli/skills_hub.py for CLI commands and the /skills slash command.
 """
 
 import hashlib
@@ -25,8 +25,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from thot_constants import get_thot_home
-from thot_cli._subprocess_compat import windows_hide_flags
+from naabiga_constants import get_naabiga_home
+from naabiga_cli._subprocess_compat import windows_hide_flags
 from agent.skill_utils import is_excluded_skill_path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -60,13 +60,13 @@ def _override(name: str):
     return globals().get(name)
 
 
-def _thot_home() -> Path:
-    return get_thot_home()
+def _naabiga_home() -> Path:
+    return get_naabiga_home()
 
 
 def _skills_dir() -> Path:
     forced = _override("SKILLS_DIR")
-    return Path(forced) if forced is not None else _thot_home() / "skills"
+    return Path(forced) if forced is not None else _naabiga_home() / "skills"
 
 
 def _hub_dir() -> Path:
@@ -100,7 +100,7 @@ def _index_cache_dir() -> Path:
 
 
 _DYNAMIC_PATH_RESOLVERS = {
-    "THOT_HOME": _thot_home,
+    "NAABIGA_HOME": _naabiga_home,
     "SKILLS_DIR": _skills_dir,
     "HUB_DIR": _hub_dir,
     "LOCK_FILE": _lock_file,
@@ -637,9 +637,9 @@ class GitHubSource(SkillSource):
         tags = []
         metadata = fm.get("metadata", {})
         if isinstance(metadata, dict):
-            thot_meta = metadata.get("thot", {})
-            if isinstance(thot_meta, dict):
-                tags = thot_meta.get("tags", [])
+            naabiga_meta = metadata.get("naabiga", {})
+            if isinstance(naabiga_meta, dict):
+                tags = naabiga_meta.get("tags", [])
         if not tags:
             raw_tags = fm.get("tags", [])
             tags = raw_tags if isinstance(raw_tags, list) else []
@@ -1376,9 +1376,9 @@ class UrlSource(SkillSource):
         tags: List[str] = []
         metadata = fm.get("metadata", {})
         if isinstance(metadata, dict):
-            thot_meta = metadata.get("thot", {})
-            if isinstance(thot_meta, dict):
-                raw_tags = thot_meta.get("tags", [])
+            naabiga_meta = metadata.get("naabiga", {})
+            if isinstance(naabiga_meta, dict):
+                raw_tags = naabiga_meta.get("tags", [])
                 if isinstance(raw_tags, list):
                     tags = [str(t) for t in raw_tags]
         return SkillMeta(
@@ -2844,7 +2844,7 @@ class LobeHubSource(SkillSource):
             f"name: {identifier}",
             f"description: {description[:500]}",
             "metadata:",
-            "  thot:",
+            "  naabiga:",
             f"    tags: [{', '.join(str(t) for t in tag_list)}]",
             "  lobehub:",
             "    source: lobehub",
@@ -3049,14 +3049,14 @@ class OptionalSkillSource(SkillSource):
 
     These skills are official (maintained by Nous Research) but not activated
     by default — they don't appear in the system prompt and aren't copied to
-    ~/.thot/skills/ during setup.  They are discoverable via the Skills Hub
+    ~/.naabiga/skills/ during setup.  They are discoverable via the Skills Hub
     (search / install / inspect) and labelled "official" with "builtin" trust.
     """
 
-    OFFICIAL_REPO = "NousResearch/thot-agent"
+    OFFICIAL_REPO = "NousResearch/naabiga-agent"
 
     def __init__(self):
-        from thot_constants import get_optional_skills_dir
+        from naabiga_constants import get_optional_skills_dir
 
         self._optional_dir = get_optional_skills_dir(
             Path(__file__).parent.parent / "optional-skills"
@@ -3182,9 +3182,9 @@ class OptionalSkillSource(SkillSource):
             tags = []
             meta_block = fm.get("metadata", {})
             if isinstance(meta_block, dict):
-                thot_meta = meta_block.get("thot", {})
-                if isinstance(thot_meta, dict):
-                    tags = thot_meta.get("tags", [])
+                naabiga_meta = meta_block.get("naabiga", {})
+                if isinstance(naabiga_meta, dict):
+                    tags = naabiga_meta.get("tags", [])
 
             rel_path = parent.relative_to(self._optional_dir).as_posix()
 
@@ -3651,31 +3651,31 @@ def check_for_skill_updates(
 
 
 # ---------------------------------------------------------------------------
-# Thot centralized index source
+# Naabiga centralized index source
 # ---------------------------------------------------------------------------
 
-THOT_INDEX_URL = "https://hermes-agent.nousresearch.com/docs/api/skills-index.json"
-THOT_INDEX_TTL = 6 * 3600  # 6 hours
+NAABIGA_INDEX_URL = "https://hermes-agent.nousresearch.com/docs/api/skills-index.json"
+NAABIGA_INDEX_TTL = 6 * 3600  # 6 hours
 
 
-def _thot_index_cache_file() -> Path:
-    return _index_cache_dir() / "thot-index.json"
+def _naabiga_index_cache_file() -> Path:
+    return _index_cache_dir() / "naabiga-index.json"
 
 
-def _load_thot_index() -> Optional[dict]:
+def _load_naabiga_index() -> Optional[dict]:
     """Fetch the centralized skills index, with local cache.
 
     The index is a JSON file hosted on the docs site, rebuilt daily by CI.
-    We cache it locally for THOT_INDEX_TTL seconds to avoid repeated
+    We cache it locally for NAABIGA_INDEX_TTL seconds to avoid repeated
     downloads within a session.
     """
     # Check local cache
-    thot_index_cache_file = _thot_index_cache_file()
-    if thot_index_cache_file.exists():
+    naabiga_index_cache_file = _naabiga_index_cache_file()
+    if naabiga_index_cache_file.exists():
         try:
-            age = time.time() - thot_index_cache_file.stat().st_mtime
-            if age < THOT_INDEX_TTL:
-                return json.loads(thot_index_cache_file.read_text())
+            age = time.time() - naabiga_index_cache_file.stat().st_mtime
+            if age < NAABIGA_INDEX_TTL:
+                return json.loads(naabiga_index_cache_file.read_text())
         except (OSError, json.JSONDecodeError):
             pass
 
@@ -3696,13 +3696,13 @@ def _load_thot_index() -> Optional[dict]:
     for accept_encoding in ("gzip, deflate", "identity"):
         try:
             resp = httpx.get(
-                THOT_INDEX_URL,
+                NAABIGA_INDEX_URL,
                 timeout=15,
                 follow_redirects=True,
                 headers={"Accept-Encoding": accept_encoding},
             )
             if resp.status_code != 200:
-                logger.debug("Thot index fetch returned %d", resp.status_code)
+                logger.debug("Naabiga index fetch returned %d", resp.status_code)
                 return _load_stale_index_cache()
             data = resp.json()
             break
@@ -3710,13 +3710,13 @@ def _load_thot_index() -> Optional[dict]:
             # Content-Encoding decode failed — retry once uncompressed before
             # giving up on the network path entirely.
             logger.debug(
-                "Thot index decode failed (Accept-Encoding=%s): %s",
+                "Naabiga index decode failed (Accept-Encoding=%s): %s",
                 accept_encoding,
                 e,
             )
             continue
         except (httpx.HTTPError, json.JSONDecodeError) as e:
-            logger.debug("Thot index fetch failed: %s", e)
+            logger.debug("Naabiga index fetch failed: %s", e)
             return _load_stale_index_cache()
 
     if data is None:
@@ -3728,8 +3728,8 @@ def _load_thot_index() -> Optional[dict]:
 
     # Cache locally
     try:
-        thot_index_cache_file.parent.mkdir(parents=True, exist_ok=True)
-        thot_index_cache_file.write_text(json.dumps(data))
+        naabiga_index_cache_file.parent.mkdir(parents=True, exist_ok=True)
+        naabiga_index_cache_file.write_text(json.dumps(data))
     except OSError:
         pass
 
@@ -3738,17 +3738,17 @@ def _load_thot_index() -> Optional[dict]:
 
 def _load_stale_index_cache() -> Optional[dict]:
     """Fall back to stale cache when the network fetch fails."""
-    thot_index_cache_file = _thot_index_cache_file()
-    if thot_index_cache_file.exists():
+    naabiga_index_cache_file = _naabiga_index_cache_file()
+    if naabiga_index_cache_file.exists():
         try:
-            return json.loads(thot_index_cache_file.read_text())
+            return json.loads(naabiga_index_cache_file.read_text())
         except (OSError, json.JSONDecodeError):
             pass
     return None
 
 
-class ThotIndexSource(SkillSource):
-    """Skill source backed by the centralized Thot Skills Index.
+class NaabigaIndexSource(SkillSource):
+    """Skill source backed by the centralized Naabiga Skills Index.
 
     The index is a JSON catalog published to the docs site and rebuilt
     daily by CI.  It contains metadata + resolved GitHub paths for every
@@ -3769,7 +3769,7 @@ class ThotIndexSource(SkillSource):
 
     def _ensure_loaded(self) -> dict:
         if not self._loaded:
-            self._index = _load_thot_index()
+            self._index = _load_naabiga_index()
             self._loaded = True
         return self._index or {}
 
@@ -3779,7 +3779,7 @@ class ThotIndexSource(SkillSource):
         return self._github
 
     def source_id(self) -> str:
-        return "thot-index"
+        return "naabiga-index"
 
     @property
     def is_available(self) -> bool:
@@ -3866,7 +3866,7 @@ class ThotIndexSource(SkillSource):
         if resolved:
             bundle = self._get_github().fetch(resolved)
             if bundle:
-                bundle.source = entry.get("source", "thot-index")
+                bundle.source = entry.get("source", "naabiga-index")
                 bundle.identifier = identifier
                 return bundle
 
@@ -3877,7 +3877,7 @@ class ThotIndexSource(SkillSource):
             github_id = f"{repo}/{path}"
             bundle = self._get_github().fetch(github_id)
             if bundle:
-                bundle.source = entry.get("source", "thot-index")
+                bundle.source = entry.get("source", "naabiga-index")
                 bundle.identifier = identifier
                 return bundle
 
@@ -3926,7 +3926,7 @@ class ThotIndexSource(SkillSource):
         return SkillMeta(
             name=entry.get("name", ""),
             description=entry.get("description", ""),
-            source=entry.get("source", "thot-index"),
+            source=entry.get("source", "naabiga-index"),
             identifier=entry.get("identifier", ""),
             trust_level=entry.get("trust_level", "community"),
             repo=entry.get("repo"),
@@ -3949,7 +3949,7 @@ def create_source_router(auth: Optional[GitHubAuth] = None) -> List[SkillSource]
 
     sources: List[SkillSource] = [
         OptionalSkillSource(),        # Official optional skills (highest priority)
-        ThotIndexSource(auth=auth), # Centralized index (search + resolved install paths)
+        NaabigaIndexSource(auth=auth), # Centralized index (search + resolved install paths)
         SkillsShSource(auth=auth),
         WellKnownSkillSource(),
         UrlSource(),                  # Direct HTTP(S) URL to a SKILL.md file
@@ -4012,7 +4012,7 @@ def parallel_search_sources(
                                   "claude-marketplace", "lobehub", "well-known"})
     if _effective_filter == "all":
         for src in sources:
-            if (src.source_id() == "thot-index"
+            if (src.source_id() == "naabiga-index"
                     and getattr(src, "is_available", False)):
                 _index_available = True
                 break

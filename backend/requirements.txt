@@ -1,5 +1,5 @@
-# NaabigaCode backend — dépendances du coeur Thot (bloc principal + cli/pty)
-# Généré depuis thot.egg-info/requires.txt (bloc de base, sans extras optionnels)
+# NaabigaCode backend — dépendances du coeur Naabiga (bloc principal + cli/pty)
+# Généré depuis naabiga.egg-info/requires.txt (bloc de base, sans extras optionnels)
 
 openai==2.24.0
 certifi==2026.5.20
@@ -28,5 +28,5 @@ uvicorn[standard]<1,>=0.24.0
 python-multipart<1,>=0.0.9
 Pillow==12.2.0
 ptyprocess<1,>=0.7.0
-# simple-term-menu exclu : dépendance de l'ancienne UI CLI Thot, non requise
+# simple-term-menu exclu : dépendance de l'ancienne UI CLI Naabiga, non requise
 # pour le moteur agent (le bridge passe par le callback de streaming).

@@ -1,5 +1,5 @@
 """
-``thot photon ...`` CLI subcommands — registered by the plugin via
+``naabiga photon ...`` CLI subcommands — registered by the plugin via
 ``ctx.register_cli_command()``.
 
 Subcommands:
@@ -10,7 +10,7 @@ Subcommands:
     telemetry          show or toggle Spectrum SDK telemetry (on/off)
 
 The device-code login runs automatically as the first step of ``setup``;
-there is no standalone ``login`` verb (matching how every other Thot
+there is no standalone ``login`` verb (matching how every other Naabiga
 gateway channel onboards through a single setup surface).
 
 Photon uses the spectrum-ts gRPC stream for inbound — there is no webhook
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from thot_cli.colors import Colors, color
+from naabiga_cli.colors import Colors, color
 
 from . import auth as photon_auth
 
@@ -37,7 +37,7 @@ _SIDECAR_DIR = Path(__file__).parent / "sidecar"
 # argparse wiring
 
 def register_cli(parser: argparse.ArgumentParser) -> None:
-    """Wire up `thot photon ...` subcommands."""
+    """Wire up `naabiga photon ...` subcommands."""
     subs = parser.add_subparsers(dest="photon_command", required=False)
 
     p_setup = subs.add_parser(
@@ -45,7 +45,7 @@ def register_cli(parser: argparse.ArgumentParser) -> None:
         help="First-time setup (device login + project + user + sidecar)",
     )
     p_setup.add_argument("--project-name", default=None,
-                         help="Project name (default: 'Thot Agent')")
+                         help="Project name (default: 'Naabiga Agent')")
     p_setup.add_argument("--phone", default=None,
                          help="Your E.164 phone number (e.g. +15551234567)")
     p_setup.add_argument("--first-name", default=None)
@@ -98,7 +98,7 @@ def _run_device_login(args: argparse.Namespace) -> int:
     """Run the RFC 8628 device-code login flow and persist the token.
 
     Internal helper — invoked as the first step of ``setup``. There is
-    no standalone ``thot photon login`` command; Photon onboards
+    no standalone ``naabiga photon login`` command; Photon onboards
     through the single ``setup`` surface like every other channel.
     """
     def _print_code(code):
@@ -141,7 +141,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
     else:
         print("[1/5] Reusing existing Photon token")
 
-    # 2. Find or create the "Thot Agent" project.
+    # 2. Find or create the "Naabiga Agent" project.
     name = args.project_name or photon_auth.DEFAULT_PROJECT_NAME
     dashboard_id = photon_auth.load_dashboard_project_id()
     try:
@@ -164,7 +164,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
         print("could not resolve a Photon project id", file=sys.stderr)
         return 1
 
-    # 3. Rotate the project secret and persist creds (runtime -> ~/.thot/.env,
+    # 3. Rotate the project secret and persist creds (runtime -> ~/.naabiga/.env,
     #    ids -> auth.json). Spectrum is always enabled and provisioned at
     #    create-time, and the dashboard project id *is* the Spectrum project id
     #    (ids unified), so there's nothing to enable — the id we already have is
@@ -272,7 +272,7 @@ def _cmd_setup(args: argparse.Namespace) -> int:
 
     print()
     print("✓ Photon setup complete.")
-    print("  Start the gateway:  thot gateway start")
+    print("  Start the gateway:  naabiga gateway start")
     return 0
 
 
@@ -286,7 +286,7 @@ def _autoconfigure_access(phone: str) -> None:
     never clobbered on a re-run.
     """
     try:
-        from thot_cli.config import get_env_value, save_env_value
+        from naabiga_cli.config import get_env_value, save_env_value
     except ImportError:
         return
     for key, label in (
@@ -312,8 +312,8 @@ def _cmd_status(_args: argparse.Namespace) -> int:
     node_bin = os.getenv("PHOTON_NODE_BIN") or shutil.which("node")
     sidecar_installed = (_SIDECAR_DIR / "node_modules").exists()
     print(f"  node binary         : {node_bin or '✗ missing (install Node 18+)'}")
-    print(f"  sidecar deps        : {'✓ installed' if sidecar_installed else '✗ run `thot photon install-sidecar`'}")
-    print(f"  telemetry           : {'on' if _telemetry_enabled() else 'off'} (`thot photon telemetry on|off`)")
+    print(f"  sidecar deps        : {'✓ installed' if sidecar_installed else '✗ run `naabiga photon install-sidecar`'}")
+    print(f"  telemetry           : {'on' if _telemetry_enabled() else 'off'} (`naabiga photon telemetry on|off`)")
     return 0
 
 
@@ -335,13 +335,13 @@ def _cmd_install_sidecar(_args: argparse.Namespace) -> int:
 
 
 def _telemetry_enabled() -> bool:
-    """Read PHOTON_TELEMETRY from the env / ~/.thot/.env.
+    """Read PHOTON_TELEMETRY from the env / ~/.naabiga/.env.
 
     Mirrors the sidecar's truthy set (index.mjs) so the state shown here
     always matches what the sidecar will actually do.
     """
     try:
-        from thot_cli.config import get_env_value
+        from naabiga_cli.config import get_env_value
         raw = get_env_value("PHOTON_TELEMETRY")
     except ImportError:
         raw = os.getenv("PHOTON_TELEMETRY")
@@ -352,16 +352,16 @@ def _cmd_telemetry(args: argparse.Namespace) -> int:
     state = getattr(args, "state", None)
     if state is None:
         print(f"Photon telemetry: {'on' if _telemetry_enabled() else 'off'}")
-        print("  Toggle with `thot photon telemetry on` / `thot photon telemetry off`.")
+        print("  Toggle with `naabiga photon telemetry on` / `naabiga photon telemetry off`.")
         return 0
     try:
-        from thot_cli.config import save_env_value
+        from naabiga_cli.config import save_env_value
         save_env_value("PHOTON_TELEMETRY", "true" if state == "on" else "false")
     except Exception as e:
         print(f"could not save PHOTON_TELEMETRY: {e}", file=sys.stderr)
         return 1
-    print(f"✓ Spectrum telemetry turned {state} (PHOTON_TELEMETRY in ~/.thot/.env)")
-    print("  Restart the gateway for the sidecar to pick it up:  thot gateway restart")
+    print(f"✓ Spectrum telemetry turned {state} (PHOTON_TELEMETRY in ~/.naabiga/.env)")
+    print("  Restart the gateway for the sidecar to pick it up:  naabiga gateway restart")
     return 0
 
 
@@ -403,15 +403,15 @@ def _install_sidecar() -> int:
 # ---------------------------------------------------------------------------
 # Gateway-setup entry point
 #
-# `thot gateway setup` discovers platforms via the registry and calls each
+# `naabiga gateway setup` discovers platforms via the registry and calls each
 # entry's zero-arg ``setup_fn``. Photon registers this function so it appears
 # in the unified setup wizard alongside every other channel — same onboarding
 # surface, no Photon-specific detour. It runs the identical device-login +
-# project + user + sidecar flow as ``thot photon setup`` with interactive
+# project + user + sidecar flow as ``naabiga photon setup`` with interactive
 # defaults (phone is prompted when stdin is a TTY).
 
 def gateway_setup() -> None:
-    """Run Photon first-time setup from the `thot gateway setup` wizard."""
+    """Run Photon first-time setup from the `naabiga gateway setup` wizard."""
     args = argparse.Namespace(
         photon_command="setup",
         project_name=None,

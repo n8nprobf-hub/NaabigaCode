@@ -1,6 +1,6 @@
 name: nemo_relay
 version: "0.1.0"
-description: "Optional NeMo Relay observability for Thot. Opt in with `thot plugins enable observability/nemo_relay`; THOT_NEMO_RELAY_* env vars configure exports after the plugin is enabled."
+description: "Optional NeMo Relay observability for Naabiga. Opt in with `naabiga plugins enable observability/nemo_relay`; NAABIGA_NEMO_RELAY_* env vars configure exports after the plugin is enabled."
 author: NousResearch
 hooks:
   - on_session_start

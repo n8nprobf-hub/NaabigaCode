@@ -81,7 +81,7 @@ _DISCORD_NONCONVERSATIONAL_HISTORY_MESSAGE_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"^\s*(?:✅|❌)\s+Thot update\s+"
+        r"^\s*(?:✅|❌)\s+Naabiga update\s+"
         r"(?:finished|failed|timed out)[\s\S]*$",
         re.IGNORECASE,
     ),
@@ -200,10 +200,10 @@ class _DiscordNonConversationalMessageTracker:
         self._ids: dict[str, None] = dict.fromkeys(self._load())
 
     def _state_path(self) -> _Path:
-        from thot_constants import get_thot_home
+        from naabiga_constants import get_naabiga_home
 
         return (
-            get_thot_home()
+            get_naabiga_home()
             / _DISCORD_COMMAND_SYNC_STATE_SUBDIR
             / _DISCORD_NONCONVERSATIONAL_STATE_FILENAME
         )
@@ -341,13 +341,13 @@ def _build_allowed_mentions():
 
 def _discord_ready_timeout_seconds() -> float:
     """Return the Discord ready wait timeout during gateway startup."""
-    raw = os.getenv("THOT_GATEWAY_PLATFORM_CONNECT_TIMEOUT", "").strip()
+    raw = os.getenv("NAABIGA_GATEWAY_PLATFORM_CONNECT_TIMEOUT", "").strip()
     if raw:
         try:
             return max(0.0, float(raw))
         except ValueError:
             logger.warning(
-                "Ignoring invalid THOT_GATEWAY_PLATFORM_CONNECT_TIMEOUT=%r",
+                "Ignoring invalid NAABIGA_GATEWAY_PLATFORM_CONNECT_TIMEOUT=%r",
                 raw,
             )
     return 30.0
@@ -690,7 +690,7 @@ class VoiceReceiver:
             f.write(pcm_data)
             pcm_path = f.name
         try:
-            from thot_cli._subprocess_compat import windows_hide_flags
+            from naabiga_cli._subprocess_compat import windows_hide_flags
 
             subprocess.run(
                 [
@@ -720,7 +720,7 @@ def _read_dm_role_auth_guild() -> Optional[int]:
 
     Reads ``discord.dm_role_auth_guild`` from config.yaml. This is
     deliberately a config.yaml-only setting (not an env var): per repo
-    policy, ``~/.thot/.env`` is for secrets only, and this is a
+    policy, ``~/.naabiga/.env`` is for secrets only, and this is a
     behavioral setting. Guild IDs aren't secrets.
 
     Accepts ints or numeric strings in the config. Anything else
@@ -728,7 +728,7 @@ def _read_dm_role_auth_guild() -> Optional[int]:
     default (DM role-auth disabled).
     """
     try:
-        from thot_cli.config import read_raw_config
+        from naabiga_cli.config import read_raw_config
         cfg = read_raw_config() or {}
         discord_cfg = cfg.get("discord", {}) or {}
         raw = discord_cfg.get("dm_role_auth_guild")
@@ -773,7 +773,7 @@ def _read_discord_prompt_timeout() -> int:
     """
     raw: Any = None
     try:
-        from thot_cli.config import read_raw_config
+        from naabiga_cli.config import read_raw_config
         cfg = read_raw_config() or {}
         approvals_cfg = cfg.get("approvals", {}) or {}
         raw = approvals_cfg.get("discord_prompt_timeout")
@@ -826,8 +826,8 @@ class DiscordAdapter(BasePlatformAdapter):
         self._voice_clients: Dict[int, Any] = {}  # guild_id -> VoiceClient
         self._voice_locks: Dict[int, asyncio.Lock] = {}  # guild_id -> serialize join/leave
         # Text batching: merge rapid successive messages (Telegram-style)
-        self._text_batch_delay_seconds = env_float("THOT_DISCORD_TEXT_BATCH_DELAY_SECONDS", 0.6)
-        self._text_batch_split_delay_seconds = env_float("THOT_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS", 2.0)
+        self._text_batch_delay_seconds = env_float("NAABIGA_DISCORD_TEXT_BATCH_DELAY_SECONDS", 0.6)
+        self._text_batch_split_delay_seconds = env_float("NAABIGA_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS", 2.0)
         self._pending_text_batches: Dict[str, MessageEvent] = {}
         self._pending_text_batch_tasks: Dict[str, asyncio.Task] = {}
         self._voice_text_channels: Dict[int, int] = {}  # guild_id -> text_channel_id
@@ -869,10 +869,10 @@ class DiscordAdapter(BasePlatformAdapter):
         # ``discord.liveness_failure_threshold`` (bridged to these env vars by
         # ``_apply_yaml_config``); set either to 0 to disable.
         self._liveness_interval_seconds = env_float(
-            "THOT_DISCORD_LIVENESS_INTERVAL_SECONDS", 60.0
+            "NAABIGA_DISCORD_LIVENESS_INTERVAL_SECONDS", 60.0
         )
         self._liveness_failure_threshold = env_int(
-            "THOT_DISCORD_LIVENESS_FAILURE_THRESHOLD", 3
+            "NAABIGA_DISCORD_LIVENESS_FAILURE_THRESHOLD", 3
         )
         self._liveness_task: Optional[asyncio.Task] = None
         # True while disconnect() is intentionally closing discord.py. The
@@ -907,7 +907,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
         discord.py reconnects normal gateway interruptions internally. When its
         top-level ``Bot.start()`` task actually exits after the adapter has been
-        marked running, the Discord websocket is dead while the Thot gateway
+        marked running, the Discord websocket is dead while the Naabiga gateway
         process can remain alive. Treat that split-brain state as a retryable
         fatal adapter error so ``GatewayRunner._handle_adapter_fatal_error`` can
         remove this adapter and queue Discord for the existing reconnect watcher.
@@ -1386,7 +1386,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
         Fix: await all pending text-batch tasks before delegating to the base
         cancel. The flush deadline is clamped below the gateway's per-adapter
-        disconnect budget (``THOT_GATEWAY_ADAPTER_DISCONNECT_TIMEOUT``, default
+        disconnect budget (``NAABIGA_GATEWAY_ADAPTER_DISCONNECT_TIMEOUT``, default
         5s) so the gateway's outer ``wait_for`` can't hard-cancel us mid-flush —
         we cancel our own stragglers cleanly inside the budget instead.
         """
@@ -1423,7 +1423,7 @@ class DiscordAdapter(BasePlatformAdapter):
         ``GatewayRunner._adapter_disconnect_timeout_secs``.
         """
         budget = 5.0  # mirrors gateway _ADAPTER_DISCONNECT_TIMEOUT_SECS_DEFAULT
-        raw = os.getenv("THOT_GATEWAY_ADAPTER_DISCONNECT_TIMEOUT", "").strip()
+        raw = os.getenv("NAABIGA_GATEWAY_ADAPTER_DISCONNECT_TIMEOUT", "").strip()
         if raw:
             try:
                 parsed = float(raw)
@@ -1483,9 +1483,9 @@ class DiscordAdapter(BasePlatformAdapter):
         logger.info("[%s] Disconnected", self.name)
 
     def _command_sync_state_path(self) -> _Path:
-        from thot_constants import get_thot_home
+        from naabiga_constants import get_naabiga_home
 
-        directory = get_thot_home() / _DISCORD_COMMAND_SYNC_STATE_SUBDIR
+        directory = get_naabiga_home() / _DISCORD_COMMAND_SYNC_STATE_SUBDIR
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except Exception:
@@ -1757,7 +1757,7 @@ class DiscordAdapter(BasePlatformAdapter):
         return "safe"
 
     def _canonicalize_app_command_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Reduce command payloads to the semantic fields Thot manages."""
+        """Reduce command payloads to the semantic fields Naabiga manages."""
         contexts = payload.get("contexts")
         integration_types = payload.get("integration_types")
         return {
@@ -2721,7 +2721,7 @@ class DiscordAdapter(BasePlatformAdapter):
             ],
         }
         try:
-            from thot_cli.config import read_raw_config
+            from naabiga_cli.config import read_raw_config
             cfg = read_raw_config() or {}
             fx = ((cfg.get("discord") or {}).get("voice_fx") or {})
             if isinstance(fx, dict):
@@ -2808,7 +2808,7 @@ class DiscordAdapter(BasePlatformAdapter):
         # Synthesise the ack via the configured TTS provider, then layer it.
         import uuid as _uuid
         audio_path = os.path.join(
-            tempfile.gettempdir(), "thot_voice",
+            tempfile.gettempdir(), "naabiga_voice",
             f"ack_{_uuid.uuid4().hex[:12]}.mp3",
         )
         os.makedirs(os.path.dirname(audio_path), exist_ok=True)
@@ -3230,7 +3230,7 @@ class DiscordAdapter(BasePlatformAdapter):
         return bool(channel_ids & allowed)
 
     def _is_pairing_approved_user(self, user_id: str) -> bool:
-        """True when the Discord user has an explicit Thot pairing grant."""
+        """True when the Discord user has an explicit Naabiga pairing grant."""
         user_id = str(user_id or "").strip()
         if not user_id:
             return False
@@ -4075,7 +4075,7 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_new(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/reset", "Nouvelle conversation démarrée~")
 
-        @tree.command(name="reset", description="Réinitialiser votre session Thot")
+        @tree.command(name="reset", description="Réinitialiser votre session Naabiga")
         async def slash_reset(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/reset", "Session réinitialisée~")
 
@@ -4102,7 +4102,7 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_undo(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/undo")
 
-        @tree.command(name="status", description="Afficher l'état de la session Thot")
+        @tree.command(name="status", description="Afficher l'état de la session Naabiga")
         async def slash_status(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/status", "État envoyé~")
 
@@ -4110,7 +4110,7 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_sethome(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/sethome")
 
-        @tree.command(name="stop", description="Arrêter l'agent Thot en cours")
+        @tree.command(name="stop", description="Arrêter l'agent Naabiga en cours")
         async def slash_stop(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/stop", "Arrêt demandé~")
 
@@ -4150,7 +4150,7 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_reload_mcp(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/reload-mcp")
 
-        @tree.command(name="reload-skills", description="Re-scanner ~/.thot/skills/ pour les compétences ajoutées ou supprimées")
+        @tree.command(name="reload-skills", description="Re-scanner ~/.naabiga/skills/ pour les compétences ajoutées ou supprimées")
         async def slash_reload_skills(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/reload-skills")
 
@@ -4172,11 +4172,11 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_voice(interaction: discord.Interaction, mode: str = ""):
             await self._run_simple_slash(interaction, f"/voice {mode}".strip())
 
-        @tree.command(name="update", description="Mettre à jour Thot Agent vers la dernière version")
+        @tree.command(name="update", description="Mettre à jour Naabiga Agent vers la dernière version")
         async def slash_update(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/update", "Mise à jour lancée~")
 
-        @tree.command(name="restart", description="Redémarrer proprement la passerelle Thot")
+        @tree.command(name="restart", description="Redémarrer proprement la passerelle Naabiga")
         async def slash_restart(interaction: discord.Interaction):
             await self._run_simple_slash(interaction, "/restart", "Redémarrage demandé~")
 
@@ -4190,10 +4190,10 @@ class DiscordAdapter(BasePlatformAdapter):
         async def slash_deny(interaction: discord.Interaction, scope: str = ""):
             await self._run_simple_slash(interaction, f"/deny {scope}".strip())
 
-        @tree.command(name="thread", description="Créer un nouveau fil et y démarrer une session Thot")
+        @tree.command(name="thread", description="Créer un nouveau fil et y démarrer une session Naabiga")
         @discord.app_commands.describe(
             name="Nom du fil",
-            message="Premier message optionnel à envoyer à Thot dans le fil",
+            message="Premier message optionnel à envoyer à Naabiga dans le fil",
             auto_archive_duration="Archivage auto en minutes (60, 1440, 4320, 10080)",
         )
         async def slash_thread(
@@ -4218,7 +4218,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
         # ── Auto-register any gateway-available commands not yet on the tree ──
         # This ensures new commands added to COMMAND_REGISTRY in
-        # thot_cli/commands.py automatically appear as Discord slash
+        # naabiga_cli/commands.py automatically appear as Discord slash
         # commands without needing a manual entry here.
         def _build_auto_slash_command(_name: str, _description: str, _args_hint: str = ""):
             """Build a discord.app_commands.Command that proxies to _run_simple_slash."""
@@ -4259,7 +4259,7 @@ class DiscordAdapter(BasePlatformAdapter):
         slot_cap = _DISCORD_MAX_APP_COMMANDS - 1
         dropped_over_cap = 0
         try:
-            from thot_cli.commands import COMMAND_REGISTRY, _is_gateway_available, _resolve_config_gates
+            from naabiga_cli.commands import COMMAND_REGISTRY, _is_gateway_available, _resolve_config_gates
 
             try:
                 already_registered = {cmd.name for cmd in tree.get_commands()}
@@ -4304,7 +4304,7 @@ class DiscordAdapter(BasePlatformAdapter):
         # autocomplete UX as for built-in commands. No per-platform plugin
         # API needed — plugin commands are platform-agnostic.
         try:
-            from thot_cli.commands import _iter_plugin_command_entries
+            from naabiga_cli.commands import _iter_plugin_command_entries
 
             for plugin_name, plugin_desc, plugin_args_hint in _iter_plugin_command_entries():
                 discord_name = plugin_name.lower()[:32]
@@ -4517,7 +4517,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
             cmd = discord.app_commands.Command(
                 name="skill",
-                description="Run a Thot skill",
+                description="Run a Naabiga skill",
                 callback=_skill_handler,
             )
             tree.add_command(cmd)
@@ -4543,7 +4543,7 @@ class DiscordAdapter(BasePlatformAdapter):
         and the handler both read from these instance attributes
         directly, so an in-place mutation is sufficient.
         """
-        from thot_cli.commands import discord_skill_commands_by_category
+        from naabiga_cli.commands import discord_skill_commands_by_category
 
         reserved = getattr(self, "_skill_group_reserved_names", set())
         categories, uncategorized, hidden = discord_skill_commands_by_category(
@@ -4687,7 +4687,7 @@ class DiscordAdapter(BasePlatformAdapter):
         if thread_id:
             self._threads.mark(thread_id)
 
-        # If a message was provided, kick off a new Thot session in the thread
+        # If a message was provided, kick off a new Naabiga session in the thread
         starter = (message or "").strip()
         if starter and thread_id:
             await self._dispatch_thread_session(interaction, thread_id, thread_name, starter)
@@ -5290,7 +5290,7 @@ class DiscordAdapter(BasePlatformAdapter):
             }
         except Exception as direct_error:
             try:
-                seed_content = starter_message or f"\U0001f9f5 Thread created by Thot: **{name}**"
+                seed_content = starter_message or f"\U0001f9f5 Thread created by Naabiga: **{name}**"
                 seed_msg = await parent_channel.send(seed_content)
                 thread = await seed_msg.create_thread(
                     name=name,
@@ -5321,7 +5321,7 @@ class DiscordAdapter(BasePlatformAdapter):
         titles don't show raw <@id>, <@&id>, or <#id> markers — the ID
         isn't meaningful to humans glancing at the thread list (#6336).
         Real semantic naming is done after the first agent turn, when
-        Thot has an LLM-generated session title and can safely rename
+        Naabiga has an LLM-generated session title and can safely rename
         only this newly-created thread.
         """
         content = (content or "").strip()
@@ -5329,7 +5329,7 @@ class DiscordAdapter(BasePlatformAdapter):
         content = re.sub(r"<@[!&]?\d+>", "", content)
         content = re.sub(r"<#\d+>", "", content)
         content = re.sub(r"\s+", " ", content).strip()
-        thread_name = content[:80] if content else "Thot"
+        thread_name = content[:80] if content else "Naabiga"
         if len(content) > 80:
             thread_name = thread_name[:77] + "..."
         return thread_name
@@ -5354,7 +5354,7 @@ class DiscordAdapter(BasePlatformAdapter):
             try:
                 thread = await message.create_thread(name=thread_name, auto_archive_duration=1440)
                 try:
-                    setattr(thread, "_thot_auto_thread_initial_name", thread_name)
+                    setattr(thread, "_naabiga_auto_thread_initial_name", thread_name)
                 except Exception:
                     pass
                 return thread
@@ -5362,7 +5362,7 @@ class DiscordAdapter(BasePlatformAdapter):
                 last_direct_error = direct_error
                 try:
                     seed_msg = await message.channel.send(
-                        f"\U0001f9f5 Thread created by Thot: **{thread_name}**"
+                        f"\U0001f9f5 Thread created by Naabiga: **{thread_name}**"
                     )
                     thread = await seed_msg.create_thread(
                         name=thread_name,
@@ -5370,7 +5370,7 @@ class DiscordAdapter(BasePlatformAdapter):
                         reason=reason,
                     )
                     try:
-                        setattr(thread, "_thot_auto_thread_initial_name", thread_name)
+                        setattr(thread, "_naabiga_auto_thread_initial_name", thread_name)
                     except Exception:
                         pass
                     return thread
@@ -5442,7 +5442,7 @@ class DiscordAdapter(BasePlatformAdapter):
         if edit is None:
             return False
         try:
-            await edit(name=cleaned, reason="Thot semantic session title")
+            await edit(name=cleaned, reason="Naabiga semantic session title")
             logger.info(
                 "[%s] Renamed Discord thread %s from %r to %r",
                 self.name, thread_id, current_name, cleaned,
@@ -5493,7 +5493,7 @@ class DiscordAdapter(BasePlatformAdapter):
             return None
 
         thread_name = (name or "handoff").strip()[:80] or "handoff"
-        reason = "Thot session handoff"
+        reason = "Naabiga session handoff"
 
         # First try: create a thread directly on the channel.
         try:
@@ -5516,7 +5516,7 @@ class DiscordAdapter(BasePlatformAdapter):
             send = getattr(parent, "send", None)
             if send is None:
                 return None
-            seed_msg = await send(f"\U0001f9f5 Thot handoff: **{thread_name}**")
+            seed_msg = await send(f"\U0001f9f5 Naabiga handoff: **{thread_name}**")
             thread = await seed_msg.create_thread(
                 name=thread_name,
                 auto_archive_duration=1440,
@@ -5603,7 +5603,7 @@ class DiscordAdapter(BasePlatformAdapter):
 
             prompt_prefix = (
                 "⚠️ **Command Approval Required**\n\n"
-                "Do you want Thot to run this command?\n\n"
+                "Do you want Naabiga to run this command?\n\n"
                 "**Requested command:**\n```bash\n"
             )
             mention_content = self._approval_mention_content()
@@ -5752,7 +5752,7 @@ class DiscordAdapter(BasePlatformAdapter):
                 body = body[: max_desc - 3] + "..."
 
             embed = discord.Embed(
-                title="❓ Thot needs your input",
+                title="❓ Naabiga needs your input",
                 description=body,
                 color=discord.Color.orange(),
             )
@@ -5821,7 +5821,7 @@ class DiscordAdapter(BasePlatformAdapter):
                 else "\n\nReply in this channel with your answer."
             )
             content = self._self_contained_prompt_content(
-                "❓ **Thot needs your input**", str(question or "").strip(),
+                "❓ **Naabiga needs your input**", str(question or "").strip(),
                 tail=clarify_tail,
             )
             msg = await channel.send(content=content, embed=embed, view=view) if view else await channel.send(content=content, embed=embed)
@@ -5839,7 +5839,7 @@ class DiscordAdapter(BasePlatformAdapter):
     ) -> SendResult:
         """Send an interactive button-based update prompt (Yes / No).
 
-        Used by the gateway ``/update`` watcher when ``thot update --gateway``
+        Used by the gateway ``/update`` watcher when ``naabiga update --gateway``
         needs user input (stash restore, config migration).
         """
         if not self._client or not DISCORD_AVAILABLE:
@@ -5903,7 +5903,7 @@ class DiscordAdapter(BasePlatformAdapter):
                 channel = await self._client.fetch_channel(int(target_id))
 
             try:
-                from thot_cli.providers import get_label
+                from naabiga_cli.providers import get_label
                 provider_label = get_label(current_provider)
             except Exception:
                 provider_label = current_provider
@@ -6251,7 +6251,7 @@ class DiscordAdapter(BasePlatformAdapter):
                     # invocation for this message.
                     try:
                         await message.channel.send(
-                            "⚠️ Thot could not create a Discord thread for "
+                            "⚠️ Naabiga could not create a Discord thread for "
                             "this message, so the request was not processed. Please retry."
                         )
                     except Exception as notify_error:
@@ -6337,7 +6337,7 @@ class DiscordAdapter(BasePlatformAdapter):
             role_authorized=role_authorized,
             auto_thread_created=auto_threaded_channel is not None,
             auto_thread_initial_name=(
-                getattr(auto_threaded_channel, "_thot_auto_thread_initial_name", None)
+                getattr(auto_threaded_channel, "_naabiga_auto_thread_initial_name", None)
                 or self._derive_auto_thread_name(message.content or "")
             ) if auto_threaded_channel is not None else None,
         )
@@ -6698,7 +6698,7 @@ def _component_check_auth(
     Mirrors the gateway's external-surface authorization model: component
     button clicks must be explicitly authorized by a Discord user/role
     allowlist, a global user allowlist, an explicit allow-all flag, or
-    the pairing store (``thot pairing approve``).
+    the pairing store (``naabiga pairing approve``).
 
     Behavior:
 
@@ -6757,7 +6757,7 @@ def _component_check_auth(
             return True
 
     # Check pairing store — mirrors ``authz_mixin._check_authorization``
-    # so users approved via ``thot pairing approve`` can interact with
+    # so users approved via ``naabiga pairing approve`` can interact with
     # component buttons even without DISCORD_ALLOWED_USERS set.
     if uid:
         try:
@@ -7082,7 +7082,7 @@ def _define_discord_view_classes() -> None:
                     pass
 
     class UpdatePromptView(discord.ui.View):
-        """Interactive Yes/No buttons for ``thot update`` prompts.
+        """Interactive Yes/No buttons for ``naabiga update`` prompts.
 
         Clicking a button writes the answer to ``.update_response`` so the
         detached update process can pick it up.  Only authorized users can
@@ -7136,8 +7136,8 @@ def _define_discord_view_classes() -> None:
 
             # Write response file
             try:
-                from thot_constants import get_thot_home
-                home = get_thot_home()
+                from naabiga_constants import get_naabiga_home
+                home = get_naabiga_home()
                 response_path = home / ".update_response"
                 tmp = response_path.with_suffix(".tmp")
                 tmp.write_text(answer)
@@ -7320,7 +7320,7 @@ def _define_discord_view_classes() -> None:
 
         async def _expensive_warning_for(self, model_id: str):
             try:
-                from thot_cli.model_cost_guard import expensive_model_warning
+                from naabiga_cli.model_cost_guard import expensive_model_warning
 
                 # Pricing lookup can hit models.dev / a /models endpoint on a
                 # cache miss — keep it off the event loop.
@@ -7460,7 +7460,7 @@ def _define_discord_view_classes() -> None:
             self._build_provider_select()
 
             try:
-                from thot_cli.providers import get_label
+                from naabiga_cli.providers import get_label
                 provider_label = get_label(self.current_provider)
             except Exception:
                 provider_label = self.current_provider
@@ -7747,7 +7747,7 @@ if DISCORD_AVAILABLE:
 
 # ── Standalone (out-of-process) sender ────────────────────────────────────────
 # Used by ``tools/send_message_tool._send_via_adapter`` when the gateway runner
-# is not in this process (e.g. ``thot cron`` running standalone) and no live
+# is not in this process (e.g. ``naabiga cron`` running standalone) and no live
 # DiscordAdapter instance is available.  Implements the same forum/thread/
 # multipart logic the live adapter would use, via Discord's REST API directly.
 #
@@ -8130,8 +8130,8 @@ def interactive_setup() -> None:
     the plugin's import surface stays small, prompts for the bot token,
     captures an allowlist, and offers to set a home channel.
     """
-    from thot_cli.config import get_env_value, save_env_value
-    from thot_cli.cli_output import (
+    from naabiga_cli.config import get_env_value, save_env_value
+    from naabiga_cli.cli_output import (
         prompt,
         prompt_yes_no,
         print_header,
@@ -8189,7 +8189,7 @@ def interactive_setup() -> None:
         )
 
     print()
-    print_info("📬 Home Channel: where Thot delivers cron job results,")
+    print_info("📬 Home Channel: where Naabiga delivers cron job results,")
     print_info("   cross-platform messages, and notifications.")
     print_info("   To get a channel ID: right-click a channel → Copy Channel ID")
     print_info("   (requires Developer Mode in Discord settings)")
@@ -8317,24 +8317,24 @@ def _apply_yaml_config(yaml_cfg: dict, discord_cfg: dict) -> dict | None:
     # __init__; set either to 0 to disable.  config.yaml is the user-facing
     # surface — these env vars are an internal mechanism only.
     lis = discord_cfg.get("liveness_interval_seconds")
-    if lis is not None and not os.getenv("THOT_DISCORD_LIVENESS_INTERVAL_SECONDS"):
-        os.environ["THOT_DISCORD_LIVENESS_INTERVAL_SECONDS"] = str(lis)
+    if lis is not None and not os.getenv("NAABIGA_DISCORD_LIVENESS_INTERVAL_SECONDS"):
+        os.environ["NAABIGA_DISCORD_LIVENESS_INTERVAL_SECONDS"] = str(lis)
     lft = discord_cfg.get("liveness_failure_threshold")
-    if lft is not None and not os.getenv("THOT_DISCORD_LIVENESS_FAILURE_THRESHOLD"):
-        os.environ["THOT_DISCORD_LIVENESS_FAILURE_THRESHOLD"] = str(lft)
+    if lft is not None and not os.getenv("NAABIGA_DISCORD_LIVENESS_FAILURE_THRESHOLD"):
+        os.environ["NAABIGA_DISCORD_LIVENESS_FAILURE_THRESHOLD"] = str(lft)
     return None  # all settings flow through env; nothing to merge into extras
 
 
 def _is_connected(config) -> bool:
     """Discord is considered connected when DISCORD_BOT_TOKEN is set.
 
-    Looks up via ``thot_cli.gateway.get_env_value`` at call time (not via
+    Looks up via ``naabiga_cli.gateway.get_env_value`` at call time (not via
     the plugin's own bound import) so tests that patch ``gateway_mod.get_env_value``
     — including ``test_setup_openclaw_migration`` — can suppress ambient
     ``DISCORD_BOT_TOKEN`` env vars. Matches what the legacy
     ``_PLATFORMS["discord"]`` dispatch did before this migration.
     """
-    import thot_cli.gateway as gateway_mod
+    import naabiga_cli.gateway as gateway_mod
     return bool((gateway_mod.get_env_value("DISCORD_BOT_TOKEN") or "").strip())
 
 
@@ -8344,7 +8344,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system."""
+    """Plugin entry point — called by the Naabiga plugin system."""
     ctx.register_platform(
         name="discord",
         label="Discord",
@@ -8352,9 +8352,9 @@ def register(ctx) -> None:
         check_fn=check_discord_requirements,
         is_connected=_is_connected,
         required_env=["DISCORD_BOT_TOKEN"],
-        install_hint="pip install 'thot-agent[messaging]'",
+        install_hint="pip install 'naabiga-agent[messaging]'",
         # Interactive setup wizard — replaces the central
-        # thot_cli/setup.py::_setup_discord function.  Same shape as Teams.
+        # naabiga_cli/setup.py::_setup_discord function.  Same shape as Teams.
         setup_fn=interactive_setup,
         # YAML→env config bridge — owns the translation of ``config.yaml``
         # ``discord:`` keys (require_mention, free_response_channels,

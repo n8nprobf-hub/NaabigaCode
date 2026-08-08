@@ -9,21 +9,21 @@ None — uses SQLite (always available). NumPy optional for HRR algebra.
 ## Setup
 
 ```bash
-thot memory setup    # select "holographic"
+naabiga memory setup    # select "holographic"
 ```
 
 Or manually:
 ```bash
-thot config set memory.provider holographic
+naabiga config set memory.provider holographic
 ```
 
 ## Config
 
-Config in `config.yaml` under `plugins.thot-memory-store`:
+Config in `config.yaml` under `plugins.naabiga-memory-store`:
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `db_path` | `$THOT_HOME/memory_store.db` | SQLite database path |
+| `db_path` | `$NAABIGA_HOME/memory_store.db` | SQLite database path |
 | `auto_extract` | `false` | Auto-extract facts at session end |
 | `default_trust` | `0.5` | Default trust score for new facts |
 | `hrr_dim` | `1024` | HRR vector dimensions |

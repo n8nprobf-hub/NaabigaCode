@@ -7,8 +7,8 @@ referenced skill's full content into a single user message, the same way
 
 Storage
 -------
-Bundles live in ``~/.thot/skill-bundles/*.yaml`` (and the equivalent
-profile-aware directory under ``THOT_HOME``). Each file looks like::
+Bundles live in ``~/.naabiga/skill-bundles/*.yaml`` (and the equivalent
+profile-aware directory under ``NAABIGA_HOME``). Each file looks like::
 
     name: backend-dev
     description: Backend feature work — code review, testing, PR workflow.
@@ -36,7 +36,7 @@ Public API
 - :func:`resolve_bundle_command_key` — map a user-typed command to its slug
 - :func:`build_bundle_invocation_message` — produce the full user message
 - :func:`reload_bundles` — re-scan disk and return a diff
-- :func:`list_bundles` — return rich info for display (``thot bundles``)
+- :func:`list_bundles` — return rich info for display (``naabiga bundles``)
 - :func:`save_bundle` / :func:`delete_bundle` — file-level operations
 """
 
@@ -50,7 +50,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +64,15 @@ _bundles_cache_mtime: Optional[float] = None
 
 
 def _bundles_dir() -> Path:
-    """Return the canonical bundles directory under THOT_HOME.
+    """Return the canonical bundles directory under NAABIGA_HOME.
 
-    Honors ``THOT_BUNDLES_DIR`` for tests; falls back to
-    ``<THOT_HOME>/skill-bundles``.
+    Honors ``NAABIGA_BUNDLES_DIR`` for tests; falls back to
+    ``<NAABIGA_HOME>/skill-bundles``.
     """
-    override = os.environ.get("THOT_BUNDLES_DIR")
+    override = os.environ.get("NAABIGA_BUNDLES_DIR")
     if override:
         return Path(override).expanduser()
-    return get_thot_home() / "skill-bundles"
+    return get_naabiga_home() / "skill-bundles"
 
 
 def _slugify(name: str) -> str:
@@ -369,7 +369,7 @@ def build_bundle_invocation_message(
 
 
 # ---------------------------------------------------------------------------
-# File-level CRUD helpers — used by `thot bundles` CLI subcommand.
+# File-level CRUD helpers — used by `naabiga bundles` CLI subcommand.
 # ---------------------------------------------------------------------------
 
 

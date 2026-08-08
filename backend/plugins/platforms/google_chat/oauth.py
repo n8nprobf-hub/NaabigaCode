@@ -43,15 +43,15 @@ familiar with that flow can read this without surprises.
 Token storage layout
 --------------------
 - Per-user tokens (keyed by sender email):
-    ``${THOT_HOME}/google_chat_user_tokens/<sanitized_email>.json``
+    ``${NAABIGA_HOME}/google_chat_user_tokens/<sanitized_email>.json``
 - Legacy single-user token (fallback, untouched for backward compat):
-    ``${THOT_HOME}/google_chat_user_token.json``
+    ``${NAABIGA_HOME}/google_chat_user_token.json``
 - Per-user pending OAuth state during /setup-files start → exchange:
-    ``${THOT_HOME}/google_chat_user_oauth_pending/<sanitized_email>.json``
+    ``${NAABIGA_HOME}/google_chat_user_oauth_pending/<sanitized_email>.json``
 - Legacy pending state:
-    ``${THOT_HOME}/google_chat_user_oauth_pending.json``
+    ``${NAABIGA_HOME}/google_chat_user_oauth_pending.json``
 - OAuth client secret (profile-scoped — each profile registers its own):
-    ``${THOT_HOME}/google_chat_user_client_secret.json``
+    ``${NAABIGA_HOME}/google_chat_user_client_secret.json``
 """
 
 from __future__ import annotations
@@ -72,20 +72,20 @@ from typing import Any, List, Optional, Tuple
 # after the in-tree → plugin migration. See adapter.py for context.
 logger = logging.getLogger("gateway.platforms.google_chat_user_oauth")
 
-# Use the project's THOT_HOME helper so the token follows the user's
-# profile (e.g. tests can override via THOT_HOME=/tmp/...).
+# Use the project's NAABIGA_HOME helper so the token follows the user's
+# profile (e.g. tests can override via NAABIGA_HOME=/tmp/...).
 try:
-    from thot_constants import display_thot_home, get_thot_home
+    from naabiga_constants import display_naabiga_home, get_naabiga_home
 except (ModuleNotFoundError, ImportError):
-    # Fallback for environments where thot_constants isn't importable
+    # Fallback for environments where naabiga_constants isn't importable
     # (mirrors the same fallback used by the google-workspace skill's
-    # _thot_home.py shim).
-    def get_thot_home() -> Path:
-        val = os.environ.get("THOT_HOME", "").strip()
-        return Path(val) if val else Path.home() / ".thot"
+    # _naabiga_home.py shim).
+    def get_naabiga_home() -> Path:
+        val = os.environ.get("NAABIGA_HOME", "").strip()
+        return Path(val) if val else Path.home() / ".naabiga"
 
-    def display_thot_home() -> str:
-        home = get_thot_home()
+    def display_naabiga_home() -> str:
+        home = get_naabiga_home()
         try:
             return "~/" + str(home.relative_to(Path.home()))
         except ValueError:
@@ -94,20 +94,20 @@ except (ModuleNotFoundError, ImportError):
 from utils import atomic_replace
 
 
-def _thot_home() -> Path:
-    """Resolve THOT_HOME at call time (NOT module import).
+def _naabiga_home() -> Path:
+    """Resolve NAABIGA_HOME at call time (NOT module import).
 
-    Tests and ``THOT_HOME=...`` env overrides need this to be late-
+    Tests and ``NAABIGA_HOME=...`` env overrides need this to be late-
     binding. If we cached the path at import time, switching profiles
     or tweaking env vars in tests would silently keep using the old
     path."""
-    return get_thot_home()
+    return get_naabiga_home()
 
 
 # Filesystem-safe key: lowercase, allow ``[a-z0-9._-@]``, replace anything
 # else with ``_``. ``ramon.fernandez@nttdata.com`` stays human-readable
 # (``ramon.fernandez@nttdata.com.json``) which makes admin debugging by
-# ``ls ~/.thot/google_chat_user_tokens/`` trivial.
+# ``ls ~/.naabiga/google_chat_user_tokens/`` trivial.
 _EMAIL_FS_RE = re.compile(r"[^a-z0-9._@-]+")
 
 
@@ -117,19 +117,19 @@ def _sanitize_email(email: str) -> str:
 
 
 def _legacy_token_path() -> Path:
-    return _thot_home() / "google_chat_user_token.json"
+    return _naabiga_home() / "google_chat_user_token.json"
 
 
 def _user_tokens_dir() -> Path:
-    return _thot_home() / "google_chat_user_tokens"
+    return _naabiga_home() / "google_chat_user_tokens"
 
 
 def _legacy_pending_path() -> Path:
-    return _thot_home() / "google_chat_user_oauth_pending.json"
+    return _naabiga_home() / "google_chat_user_oauth_pending.json"
 
 
 def _user_pending_dir() -> Path:
-    return _thot_home() / "google_chat_user_oauth_pending"
+    return _naabiga_home() / "google_chat_user_oauth_pending"
 
 
 def _token_path(email: Optional[str] = None) -> Path:
@@ -140,7 +140,7 @@ def _token_path(email: Optional[str] = None) -> Path:
 
 
 def _client_secret_path() -> Path:
-    return _thot_home() / "google_chat_user_client_secret.json"
+    return _naabiga_home() / "google_chat_user_client_secret.json"
 
 
 def _pending_auth_path(email: Optional[str] = None) -> Path:
@@ -199,7 +199,7 @@ def load_user_credentials(email: Optional[str] = None) -> Optional[Any]:
     except ImportError:
         logger.warning(
             "[google_chat_user_oauth] google-auth not installed; user-OAuth "
-            "attachment delivery is disabled. Install thot-agent[google_chat]."
+            "attachment delivery is disabled. Install naabiga-agent[google_chat]."
         )
         return None
 
@@ -379,7 +379,7 @@ def install_deps() -> bool:
 
     print("Installing Google Chat OAuth dependencies...")
     try:
-        from thot_cli.tools_config import _pip_install
+        from naabiga_cli.tools_config import _pip_install
 
         result = _pip_install(["--quiet"] + _REQUIRED_PACKAGES)
         if result.returncode != 0:
@@ -389,7 +389,7 @@ def install_deps() -> bool:
     except Exception as exc:
         print(f"ERROR: Failed to install dependencies: {exc}")
         print("Or install via the optional extra:")
-        print("  pip install 'thot-agent[google_chat]'")
+        print("  pip install 'naabiga-agent[google_chat]'")
         return False
 
 
@@ -413,7 +413,7 @@ def check_auth(email: Optional[str] = None) -> bool:
 
 
 def store_client_secret(path: str) -> None:
-    """Validate and copy the user's OAuth client_secret.json into THOT_HOME."""
+    """Validate and copy the user's OAuth client_secret.json into NAABIGA_HOME."""
     src = Path(path).expanduser().resolve()
     if not src.exists():
         print(f"ERROR: File not found: {src}")
@@ -583,9 +583,9 @@ def exchange_auth_code(code: str, email: Optional[str] = None) -> None:
 
     print(f"OK: Authenticated. Token saved to {token_path}")
     rel_label = (
-        f"{display_thot_home()}/google_chat_user_tokens/{_sanitize_email(email)}.json"
+        f"{display_naabiga_home()}/google_chat_user_tokens/{_sanitize_email(email)}.json"
         if email
-        else f"{display_thot_home()}/google_chat_user_token.json"
+        else f"{display_naabiga_home()}/google_chat_user_token.json"
     )
     print(f"Profile path: {rel_label}")
 
@@ -629,7 +629,7 @@ def revoke(email: Optional[str] = None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Google Chat user-OAuth setup for Thot (native attachment delivery)"
+        description="Google Chat user-OAuth setup for Naabiga (native attachment delivery)"
     )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--check", action="store_true",

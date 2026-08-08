@@ -3,7 +3,7 @@
 A *secret source* resolves credentials from an external secret manager
 (Bitwarden Secrets Manager, 1Password, an OS keystore, a user script, ...)
 into environment-variable-shaped values at process startup, AFTER
-``~/.thot/.env`` has loaded and BEFORE the rest of Thot reads
+``~/.naabiga/.env`` has loaded and BEFORE the rest of Naabiga reads
 ``os.environ``.
 
 Scope of the contract (deliberate, please do not widen):
@@ -13,7 +13,7 @@ Scope of the contract (deliberate, please do not widen):
   mid-session secret API.  If a future need for rotation/refresh appears
   it will arrive as a versioned optional hook — do not bolt it on.
 * **Startup-time, synchronous.**  ``fetch()`` is called once per process
-  (per THOT_HOME) by the orchestrator in
+  (per NAABIGA_HOME) by the orchestrator in
   :mod:`agent.secret_sources.registry`, which enforces a wall-clock
   timeout around it.  Sources must not spawn background refreshers.
 * **Never raises, never prompts.**  ``fetch()`` returns a
@@ -62,7 +62,7 @@ DEFAULT_CLI_TIMEOUT_SECONDS = 30.0
 class ErrorKind(str, Enum):
     """Machine-readable failure taxonomy for :class:`FetchResult.error`.
 
-    A fixed vocabulary keeps startup warnings and ``thot secrets status``
+    A fixed vocabulary keeps startup warnings and ``naabiga secrets status``
     uniform across backends, and lets the orchestrator implement
     kind-dependent policy (e.g. a future stale-cache fallback on
     ``NETWORK``/``TIMEOUT`` but not on ``AUTH_FAILED``) exactly once.
@@ -116,7 +116,7 @@ class SecretSource(ABC):
             Lowercase ``[a-z0-9_]+``.  Also the provenance label stored
             for every var this source supplies.
         label: Human-readable name used in startup messages and
-            ``thot secrets status`` (e.g. ``"Bitwarden Secrets Manager"``).
+            ``naabiga secrets status`` (e.g. ``"Bitwarden Secrets Manager"``).
         shape: ``"mapped"`` when the user explicitly binds env-var names
             to refs (1Password ``env:`` map, command source) or
             ``"bulk"`` when the backend injects whole projects/folders
@@ -146,7 +146,7 @@ class SecretSource(ABC):
 
         ``cfg`` is the source's raw config section (``secrets.<name>``)
         from config.yaml — treat every field defensively, the section
-        may be malformed.  ``home_path`` is the resolved THOT_HOME.
+        may be malformed.  ``home_path`` is the resolved NAABIGA_HOME.
         """
 
     # -- optional hooks (defaults are correct for most sources) ------------
@@ -199,7 +199,7 @@ class SecretSource(ABC):
 _ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # ANSI CSI/OSC escape sequences — helper-CLI stderr often carries color
-# codes that must not reach Thot' own startup output.
+# codes that must not reach Naabiga' own startup output.
 _ANSI_RE = re.compile(r"\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?)")
 
 
@@ -229,9 +229,9 @@ def run_secret_cli(
     * The child gets ``PATH``/``HOME``/locale basics plus only the env
       vars named in ``allow_env`` (auth/session vars) and ``extra_env``
       — never a copy of the full post-dotenv ``os.environ``, which by
-      this point holds every credential Thot knows about.
+      this point holds every credential Naabiga knows about.
     * ``NO_COLOR=1`` is set and stderr/stdout are ANSI-scrubbed so
-      helper diagnostics can't smuggle escape sequences into Thot
+      helper diagnostics can't smuggle escape sequences into Naabiga
       output.
     * stdin is ``/dev/null`` so a helper that decides to prompt fails
       fast instead of hanging startup.

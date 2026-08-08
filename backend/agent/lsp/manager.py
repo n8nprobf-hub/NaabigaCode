@@ -78,7 +78,7 @@ class _BackgroundLoop:
             return
         self._thread = threading.Thread(
             target=self._run_forever,
-            name="thot-lsp-loop",
+            name="naabiga-lsp-loop",
             daemon=True,
         )
         self._thread.start()
@@ -185,13 +185,13 @@ class LSPService:
 
     @classmethod
     def create_from_config(cls) -> Optional["LSPService"]:
-        """Build a service from ``thot_cli.config`` settings.
+        """Build a service from ``naabiga_cli.config`` settings.
 
         Returns ``None`` if the config can't be loaded.  The service
         itself returns ``is_active()`` False when LSP is disabled.
         """
         try:
-            from thot_cli.config import load_config
+            from naabiga_cli.config import load_config
             cfg = load_config()
         except Exception as e:  # noqa: BLE001
             logger.debug("LSP config load failed: %s", e)
@@ -255,7 +255,7 @@ class LSPService:
 
         Files in already-broken pairs return False so the file_operations
         layer skips the LSP path entirely — no spawn attempts, no
-        timeout cost — until the service is restarted (``thot lsp
+        timeout cost — until the service is restarted (``naabiga lsp
         restart``) or the process exits.
         """
         if not self._enabled:
@@ -578,7 +578,7 @@ class LSPService:
         )
 
     # ------------------------------------------------------------------
-    # status / introspection (used by ``thot lsp status``)
+    # status / introspection (used by ``naabiga lsp status``)
     # ------------------------------------------------------------------
 
     def get_status(self) -> Dict[str, Any]:

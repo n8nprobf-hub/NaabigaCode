@@ -156,7 +156,7 @@ def _query_osv(
         data=data,
         headers={
             "Content-Type": "application/json",
-            "User-Agent": "thot-agent-osv-check/1.0",
+            "User-Agent": "naabiga-agent-osv-check/1.0",
         },
         method="POST",
     )

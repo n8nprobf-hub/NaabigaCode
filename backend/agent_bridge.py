@@ -1,8 +1,8 @@
 """
-agent_bridge.py — Adaptateur qui branche le vrai moteur Thot (AIAgent)
+agent_bridge.py — Adaptateur qui branche le vrai moteur Naabiga (AIAgent)
 sur les sessions SSE du backend NaabigaCode.
 
-Pattern repris de thot_cli/oneshot.py :
+Pattern repris de naabiga_cli/oneshot.py :
   1. résoudre provider/modèle via resolve_runtime_provider()
   2. construire AIAgent (quiet_mode=True, callbacks d'affichage coupés)
   3. attacher stream_delta_callback → émet {"type":"assistant","text":…}
@@ -19,7 +19,7 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-# ── Bootstrap : le coeur Thot vit dans backend/agent + run_agent.py ──
+# ── Bootstrap : le coeur Naabiga vit dans backend/agent + run_agent.py ──
 BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -32,10 +32,10 @@ EmitFn = Callable[[Dict[str, Any]], None]
 
 def _resolve_runtime(provider: Optional[str], model: Optional[str]) -> Dict[str, Any]:
     """Résout (provider, base_url, api_key, api_mode) comme le fait oneshot."""
-    from thot_cli.runtime_provider import resolve_runtime_provider
+    from naabiga_cli.runtime_provider import resolve_runtime_provider
 
     runtime = resolve_runtime_provider(
-        requested=provider or os.getenv("THOT_INFERENCE_PROVIDER", "").strip() or None,
+        requested=provider or os.getenv("NAABIGA_INFERENCE_PROVIDER", "").strip() or None,
         target_model=model or None,
     )
     return runtime
@@ -81,27 +81,27 @@ def run_turn(
     provider: Optional[str] = None,
     model: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Exécute un tour complet du moteur Thot. Bloquant → lancer dans un thread.
+    """Exécute un tour complet du moteur Naabiga. Bloquant → lancer dans un thread.
 
     Retourne le résultat de run_conversation() (final_response, messages, …).
     """
-    # Le moteur Thot est verbeux sur stderr : on garde les logs fichiers mais
+    # Le moteur Naabiga est verbeux sur stderr : on garde les logs fichiers mais
     # on coupe les logs racine pendant le tour (comme oneshot).
     logging.disable(logging.CRITICAL)
     try:
-        from thot_cli.oneshot import _run_agent
-        from thot_cli.config import load_config
+        from naabiga_cli.oneshot import _run_agent
+        from naabiga_cli.config import load_config
 
         runtime = _resolve_runtime(provider, model)
 
-        # Même résolution que thot_cli/oneshot.py : explicite → env → config.
+        # Même résolution que naabiga_cli/oneshot.py : explicite → env → config.
         cfg = load_config()
         model_cfg = cfg.get("model") or {}
         if isinstance(model_cfg, str):
             cfg_model = model_cfg
         else:
             cfg_model = model_cfg.get("default") or model_cfg.get("model") or ""
-        env_model = os.getenv("THOT_INFERENCE_MODEL", "").strip()
+        env_model = os.getenv("NAABIGA_INFERENCE_MODEL", "").strip()
         effective_model = (model or "").strip() or env_model or cfg_model
 
         # _run_agent construit l'agent et appelle run_conversation().
@@ -109,7 +109,7 @@ def run_turn(
         result = _run_agent_with_streaming(runtime, effective_model, user_message, emit)
         return result
     except Exception as exc:
-        logger.exception("Thot turn failed: %s", exc)
+        logger.exception("Naabiga turn failed: %s", exc)
         return {"final_response": "", "completed": False, "failed": True, "error": str(exc)}
     finally:
         logging.disable(logging.NOTSET)
@@ -118,10 +118,10 @@ def run_turn(
 def _run_agent_with_streaming(
     runtime: Dict[str, Any], model: str, prompt: str, emit: EmitFn
 ) -> Dict[str, Any]:
-    """Variante de thot_cli.oneshot._run_agent avec stream_delta_callback."""
-    from thot_cli.oneshot import _normalize_toolsets
-    from thot_cli.config import load_config
-    from thot_cli.tools_config import _get_platform_tools
+    """Variante de naabiga_cli.oneshot._run_agent avec stream_delta_callback."""
+    from naabiga_cli.oneshot import _normalize_toolsets
+    from naabiga_cli.config import load_config
+    from naabiga_cli.tools_config import _get_platform_tools
     from run_agent import AIAgent
 
     cfg = load_config()
@@ -144,7 +144,7 @@ def _run_agent_with_streaming(
     agent.stream_delta_callback = lambda delta: _emit_delta(emit, delta)
     agent.tool_gen_callback = None
 
-    emit({"type": "info", "message": f"agent Thot prêt ({model})"})
+    emit({"type": "info", "message": f"agent Naabiga prêt ({model})"})
     result = agent.run_conversation(prompt)
     return result
 

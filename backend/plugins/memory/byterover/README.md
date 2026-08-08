@@ -14,14 +14,14 @@ npm install -g byterover-cli
 ## Setup
 
 ```bash
-thot memory setup    # select "byterover"
+naabiga memory setup    # select "byterover"
 ```
 
 Or manually:
 ```bash
-thot config set memory.provider byterover
+naabiga config set memory.provider byterover
 # Optional cloud sync:
-echo "BRV_API_KEY=your-key" >> ~/.thot/.env
+echo "BRV_API_KEY=your-key" >> ~/.naabiga/.env
 ```
 
 ## Config
@@ -30,7 +30,7 @@ echo "BRV_API_KEY=your-key" >> ~/.thot/.env
 |---------|----------|-------------|
 | `BRV_API_KEY` | No | Cloud sync key (optional, local-first by default) |
 
-Working directory: `$THOT_HOME/byterover/` (profile-scoped).
+Working directory: `$NAABIGA_HOME/byterover/` (profile-scoped).
 
 ## Tools
 

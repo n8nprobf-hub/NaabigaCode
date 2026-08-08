@@ -220,7 +220,7 @@ def dispatch_async_delegation(
 
     try:
         # Propagate the dispatching profile so the detached child resolves
-        # get_thot_home() under the right profile.
+        # get_naabiga_home() under the right profile.
         executor.submit(propagate_context_to_thread(_worker))
     except Exception as exc:  # pragma: no cover — pool submit failure is rare
         with _records_lock:

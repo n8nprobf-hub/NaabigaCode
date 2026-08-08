@@ -18,8 +18,8 @@ from typing import Optional
 
 from tools.environments.base import BaseEnvironment, _popen_bash
 from tools.environments.local import (
-    _THOT_PROVIDER_ENV_BLOCKLIST,
-    _is_thot_internal_secret,
+    _NAABIGA_PROVIDER_ENV_BLOCKLIST,
+    _is_naabiga_internal_secret,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,10 +93,10 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
     return normalized
 
 
-def _load_thot_env_vars() -> dict[str, str]:
-    """Load ~/.thot/.env values without failing Docker command execution."""
+def _load_naabiga_env_vars() -> dict[str, str]:
+    """Load ~/.naabiga/.env values without failing Docker command execution."""
     try:
-        from thot_cli.config import load_env
+        from naabiga_cli.config import load_env
 
         return load_env() or {}
     except Exception:
@@ -124,14 +124,14 @@ def _sanitize_label_value(value: str) -> str:
 
 
 def _get_active_profile_name() -> str:
-    """Return the active Thot profile name, or ``"default"`` on any error.
+    """Return the active Naabiga profile name, or ``"default"`` on any error.
 
     Resolved at container-create time so a single container is permanently
     tagged with the profile that created it. Profile switches inside the
     same process don't retroactively relabel running containers.
     """
     try:
-        from thot_cli.profiles import get_active_profile_name
+        from naabiga_cli.profiles import get_active_profile_name
 
         return get_active_profile_name() or "default"
     except Exception:
@@ -144,16 +144,16 @@ def reap_orphan_containers(
     profile_filter: str | None = None,
     docker_exe: str | None = None,
 ) -> int:
-    """Remove stale thot-tagged containers left behind by prior processes.
+    """Remove stale naabiga-tagged containers left behind by prior processes.
 
     Targets containers that match all of:
 
-    * ``label=thot-agent=1`` (created by this codebase)
+    * ``label=naabiga-agent=1`` (created by this codebase)
     * ``status=exited`` (running containers are NEVER reaped — they may
-      belong to a sibling Thot process whose reuse path will pick them
+      belong to a sibling Naabiga process whose reuse path will pick them
       up; killing them would crash the sibling mid-command)
-    * (optional) ``label=thot-profile=<profile_filter>`` (sweep only the
-      caller's profile by default; a thot process in profile A must not
+    * (optional) ``label=naabiga-profile=<profile_filter>`` (sweep only the
+      caller's profile by default; a naabiga process in profile A must not
       tear down profile B's containers)
     * ``State.FinishedAt`` older than *max_age_seconds* ago (so a sibling
       process that just exited and is about to be replaced doesn't get
@@ -166,15 +166,15 @@ def reap_orphan_containers(
 
     Issue #20561 — this is the safety net for SIGKILL / OOM / crashed
     terminal exits that bypass the ``atexit`` cleanup hook. Without it,
-    even with the cleanup-fix in the prior commit, a hard-killed Thot
+    even with the cleanup-fix in the prior commit, a hard-killed Naabiga
     process leaves its container behind permanently because there's no
-    subsequent Thot process scheduled to reuse that exact (task, profile)
+    subsequent Naabiga process scheduled to reuse that exact (task, profile)
     pair.
     """
     docker = docker_exe or find_docker() or "docker"
-    filters = ["--filter", "label=thot-agent=1", "--filter", "status=exited"]
+    filters = ["--filter", "label=naabiga-agent=1", "--filter", "status=exited"]
     if profile_filter:
-        filters.extend(["--filter", f"label=thot-profile={_sanitize_label_value(profile_filter)}"])
+        filters.extend(["--filter", f"label=naabiga-profile={_sanitize_label_value(profile_filter)}"])
 
     try:
         listing = subprocess.run(
@@ -271,7 +271,7 @@ def find_docker() -> Optional[str]:
     """Locate the docker (or podman) CLI binary.
 
     Resolution order:
-    1. ``THOT_DOCKER_BINARY`` env var — explicit override (e.g. ``/usr/bin/podman``)
+    1. ``NAABIGA_DOCKER_BINARY`` env var — explicit override (e.g. ``/usr/bin/podman``)
     2. ``docker`` on PATH via ``shutil.which``
     3. ``podman`` on PATH via ``shutil.which``
     4. Well-known macOS Docker Desktop install locations
@@ -283,10 +283,10 @@ def find_docker() -> Optional[str]:
         return _docker_executable
 
     # 1. Explicit override via env var (e.g. for Podman on immutable distros)
-    override = os.getenv("THOT_DOCKER_BINARY")
+    override = os.getenv("NAABIGA_DOCKER_BINARY")
     if override and os.path.isfile(override) and os.access(override, os.X_OK):
         _docker_executable = override
-        logger.info("Using THOT_DOCKER_BINARY override: %s", override)
+        logger.info("Using NAABIGA_DOCKER_BINARY override: %s", override)
         return override
 
     # 2. docker on PATH
@@ -317,7 +317,7 @@ def find_docker() -> Optional[str]:
 # We drop all capabilities then add back the minimum needed:
 #   DAC_OVERRIDE - root can write to bind-mounted dirs owned by host user
 #   CHOWN/FOWNER - package managers (pip, npm, apt) need to set file ownership
-#   SETUID/SETGID - the image's init drops from root to the 'thot'
+#   SETUID/SETGID - the image's init drops from root to the 'naabiga'
 #       user (via `s6-setuidgid` in the bundled image, or whatever
 #       privilege-drop helper a user image uses), which requires these
 #       caps. Combined with `no-new-privileges`, the dropped process
@@ -383,7 +383,7 @@ def _image_uses_init_entrypoint(docker_exe: str, image: str) -> bool:
     """Return True if ``image``'s entrypoint is the s6-overlay ``/init``.
 
     Such images (e.g. anything built on ``s6-overlay``, including
-    ``thot-agent:latest``) already provide their own PID-1 init and execute
+    ``naabiga-agent:latest``) already provide their own PID-1 init and execute
     ``/run/s6/basedir/bin/init`` during stage0 startup. They are incompatible
     with Docker's ``--init`` (two competing PID-1 inits) and with a ``noexec``
     ``/run`` mount. Detection is best-effort: on any inspection failure we
@@ -643,7 +643,7 @@ class DockerEnvironment(BaseEnvironment):
             resource_args.append("--network=none")
 
         # Persistent workspace via bind mounts from a configurable host directory
-        # (TERMINAL_SANDBOX_DIR, default ~/.thot/sandboxes/). Non-persistent
+        # (TERMINAL_SANDBOX_DIR, default ~/.naabiga/sandboxes/). Non-persistent
         # mode uses tmpfs (ephemeral, fast, gone on cleanup).
         from tools.environments.base import get_sandbox_dir
 
@@ -815,7 +815,7 @@ class DockerEnvironment(BaseEnvironment):
         # /usr/local/bin is not in PATH (common on macOS gateway/service).
         self._docker_exe = find_docker() or "docker"
 
-        # s6-overlay images (e.g. thot-agent:latest) already use /init as PID 1
+        # s6-overlay images (e.g. naabiga-agent:latest) already use /init as PID 1
         # and exec /run/s6/basedir/bin/init during startup. For those images we
         # must (a) skip Docker's --init (two competing PID-1 inits) and (b) mount
         # /run with exec instead of noexec, or s6 stage0 dies with exit 126
@@ -855,20 +855,20 @@ class DockerEnvironment(BaseEnvironment):
         logger.info(f"Docker run_args: {all_run_args}")
 
         # Start the container directly via `docker run -d`.
-        container_name = f"thot-{uuid.uuid4().hex[:8]}"
-        # Labels make thot-created containers identifiable to:
-        #   * the orphan reaper (`thot-agent=1` for the global sweep filter)
-        #   * future cross-process reuse (`thot-task-id`, `thot-profile`)
-        #   * operators running `docker ps --filter label=thot-agent=1`
+        container_name = f"naabiga-{uuid.uuid4().hex[:8]}"
+        # Labels make naabiga-created containers identifiable to:
+        #   * the orphan reaper (`naabiga-agent=1` for the global sweep filter)
+        #   * future cross-process reuse (`naabiga-task-id`, `naabiga-profile`)
+        #   * operators running `docker ps --filter label=naabiga-agent=1`
         # Values are limited to the safe character set defined by
-        # _sanitize_label_value(); the active Thot profile is captured at
+        # _sanitize_label_value(); the active Naabiga profile is captured at
         # container-start time and never changes for the container's lifetime.
         profile_name = _sanitize_label_value(_get_active_profile_name())
         task_label = _sanitize_label_value(task_id)
         label_args = [
-            "--label", "thot-agent=1",
-            "--label", f"thot-task-id={task_label}",
-            "--label", f"thot-profile={profile_name}",
+            "--label", "naabiga-agent=1",
+            "--label", f"naabiga-task-id={task_label}",
+            "--label", f"naabiga-profile={profile_name}",
         ]
         # Save args for container recreation on "No such container" recovery.
         self._image = image
@@ -877,13 +877,13 @@ class DockerEnvironment(BaseEnvironment):
         self._all_run_args = all_run_args
 
         self._labels = {
-            "thot-agent": "1",
-            "thot-task-id": task_label,
-            "thot-profile": profile_name,
+            "naabiga-agent": "1",
+            "naabiga-task-id": task_label,
+            "naabiga-profile": profile_name,
         }
 
         # Cross-process container reuse (issue #20561 — docs claim "ONE long-lived
-        # container shared across sessions").  If a prior Thot process
+        # container shared across sessions").  If a prior Naabiga process
         # already started a container for this (task_id, profile) and it
         # still exists, attach to it instead of starting a fresh one.  This
         # restores the documented contract; opt out via
@@ -1033,19 +1033,19 @@ class DockerEnvironment(BaseEnvironment):
         except Exception:
             pass
         # Explicit docker_forward_env entries are an intentional opt-in and must
-        # win over the generic Thot secret blocklist. Only implicit passthrough
-        # keys are filtered. Also strip Thot-internal dynamic secrets
+        # win over the generic Naabiga secret blocklist. Only implicit passthrough
+        # keys are filtered. Also strip Naabiga-internal dynamic secrets
         # (AUXILIARY_*_API_KEY / _BASE_URL, GATEWAY_RELAY_* auth) that the
-        # name-based blocklist doesn't cover — see _is_thot_internal_secret.
+        # name-based blocklist doesn't cover — see _is_naabiga_internal_secret.
         _implicit_forward = {
-            k for k in passthrough_keys if not _is_thot_internal_secret(k)
+            k for k in passthrough_keys if not _is_naabiga_internal_secret(k)
         }
-        forward_keys = explicit_forward_keys | (_implicit_forward - _THOT_PROVIDER_ENV_BLOCKLIST)
-        thot_env = _load_thot_env_vars() if forward_keys else {}
+        forward_keys = explicit_forward_keys | (_implicit_forward - _NAABIGA_PROVIDER_ENV_BLOCKLIST)
+        naabiga_env = _load_naabiga_env_vars() if forward_keys else {}
         for key in sorted(forward_keys):
             value = os.getenv(key)
             if not value:
-                value = thot_env.get(key)
+                value = naabiga_env.get(key)
             if value:
                 exec_env[key] = value
 
@@ -1106,8 +1106,8 @@ class DockerEnvironment(BaseEnvironment):
         self._container_id = None
 
         # 1. Try label-based reuse (another process may have recreated it).
-        task_label = self._labels.get("thot-task-id", "")
-        profile_label = self._labels.get("thot-profile", "")
+        task_label = self._labels.get("naabiga-task-id", "")
+        profile_label = self._labels.get("naabiga-profile", "")
         existing = self._find_reusable_container(task_label, profile_label)
         if existing is not None:
             cid, state = existing
@@ -1133,7 +1133,7 @@ class DockerEnvironment(BaseEnvironment):
                 return False
             try:
                 import uuid as _uuid
-                new_name = f"thot-{_uuid.uuid4().hex[:8]}"
+                new_name = f"naabiga-{_uuid.uuid4().hex[:8]}"
                 init_args = [] if self._image_uses_s6_init else ["--init"]
                 label_args = []
                 for k, v in self._labels.items():
@@ -1277,16 +1277,16 @@ class DockerEnvironment(BaseEnvironment):
         whether the state warrants ``docker start`` before reuse.
 
         Restricted to the docker-stored label set this class creates; never
-        matches containers that happened to be named ``thot-*`` but were
+        matches containers that happened to be named ``naabiga-*`` but were
         started by some other tool.
         """
         try:
             result = subprocess.run(
                 [
                     self._docker_exe, "ps", "-a",
-                    "--filter", "label=thot-agent=1",
-                    "--filter", f"label=thot-task-id={task_label}",
-                    "--filter", f"label=thot-profile={profile_label}",
+                    "--filter", "label=naabiga-agent=1",
+                    "--filter", f"label=naabiga-task-id={task_label}",
+                    "--filter", f"label=naabiga-profile={profile_label}",
                     "--format", "{{.ID}}\t{{.State}}",
                 ],
                 capture_output=True,
@@ -1308,7 +1308,7 @@ class DockerEnvironment(BaseEnvironment):
         if not lines:
             return None
         # Multiple matches are unusual (one (task, profile) should produce one
-        # container) but can happen if a previous Thot process crashed
+        # container) but can happen if a previous Naabiga process crashed
         # mid-cleanup. Prefer a running one if present; otherwise pick the
         # first listed. Stale duplicates get reaped by the orphan-reaper in a
         # follow-up commit; we don't try to be heroic about them here.
@@ -1330,7 +1330,7 @@ class DockerEnvironment(BaseEnvironment):
 
         Persist-mode (``persist_across_processes=True``, the default) leaves the
         container **running** untouched. The docs promise "ONE long-lived
-        container shared across sessions" and stopping it on every Thot exit
+        container shared across sessions" and stopping it on every Naabiga exit
         breaks that promise:
 
         * Background processes inside the container (``npm run dev``, watchers,
@@ -1343,8 +1343,8 @@ class DockerEnvironment(BaseEnvironment):
 
         Resource reclamation for the persist-mode case lives in the
         ``reap_orphan_containers()`` path (see issue #20561 commit 3): if no
-        Thot process touches a labeled container for ``2 × lifetime_seconds``
-        it gets ``docker rm -f``'d at the next Thot startup. That covers the
+        Naabiga process touches a labeled container for ``2 × lifetime_seconds``
+        it gets ``docker rm -f``'d at the next Naabiga startup. That covers the
         SIGKILL / OOM / abandoned-laptop cases without us needing to stop the
         container on every graceful exit.
 
@@ -1384,7 +1384,7 @@ class DockerEnvironment(BaseEnvironment):
         #   persist_across_processes=False → stop + rm (per-process isolation)
         #
         # The persist-mode no-op is the issue-#20561 contract: the container
-        # outlives Thot processes, processes inside it stay alive, and
+        # outlives Naabiga processes, processes inside it stay alive, and
         # reuse on next startup is instant.
         if force_remove:
             should_stop = True
@@ -1431,7 +1431,7 @@ class DockerEnvironment(BaseEnvironment):
         # ``_atexit_cleanup`` in terminal_tool.py which waits up to ~60s for
         # outstanding cleanups, so most exits complete the work cleanly.
         import threading
-        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"thot-cleanup-{log_id}")
+        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"naabiga-cleanup-{log_id}")
         t.start()
         self._cleanup_thread = t
         self._container_id = None
@@ -1450,7 +1450,7 @@ class DockerEnvironment(BaseEnvironment):
         Returns ``True`` if the thread finished (or no thread was started),
         ``False`` on timeout. The atexit hook in terminal_tool.py calls this
         on every active environment so docker stop/rm actually completes
-        before the Python process exits — without this, ``thot /quit``
+        before the Python process exits — without this, ``naabiga /quit``
         races the interpreter shutdown and leaves stopped containers behind.
         """
         thread = getattr(self, "_cleanup_thread", None)

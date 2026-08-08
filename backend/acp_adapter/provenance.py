@@ -1,12 +1,12 @@
 """Derive ACP session-provenance metadata from the existing compression chain.
 
-This is an additive Thot extension surfaced under ACP ``_meta.thot`` so
+This is an additive Naabiga extension surfaced under ACP ``_meta.naabiga`` so
 existing ACP clients ignore it. It carries no new persisted state: everything
 is derived on demand from the ``sessions`` table (``parent_session_id`` /
 ``end_reason``), which already models compression-continuation chains.
 
 The ACP/editor ``session_id`` stays the stable public handle. When context
-compression rotates the internal Thot head, ``build_session_provenance`` lets
+compression rotates the internal Naabiga head, ``build_session_provenance`` lets
 a client see the previous/current internal ids and the lineage root without
 parsing status text, guessing from token drops, or reading ``state.db``.
 """
@@ -22,26 +22,26 @@ _MAX_WALK = 100
 def build_session_provenance(
     db: Any,
     acp_session_id: str,
-    current_thot_session_id: str,
+    current_naabiga_session_id: str,
     *,
-    previous_thot_session_id: Optional[str] = None,
+    previous_naabiga_session_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Build ``_meta.thot.sessionProvenance`` for an ACP session.
+    """Build ``_meta.naabiga.sessionProvenance`` for an ACP session.
 
     Args:
         db: A ``SessionDB`` (must expose ``get_session``).
         acp_session_id: The stable ACP/editor-facing session handle.
-        current_thot_session_id: The live internal Thot DB session id
+        current_naabiga_session_id: The live internal Naabiga DB session id
             (``state.agent.session_id``).
-        previous_thot_session_id: The internal id from before the most recent
+        previous_naabiga_session_id: The internal id from before the most recent
             turn, when known. Supplied by ``prompt()`` to flag a rotation.
 
     Returns:
-        A dict suitable for ``{"thot": {"sessionProvenance": <dict>}}`` under
+        A dict suitable for ``{"naabiga": {"sessionProvenance": <dict>}}`` under
         ACP ``_meta``, or ``None`` if the session can't be read.
     """
     try:
-        row = db.get_session(current_thot_session_id)
+        row = db.get_session(current_naabiga_session_id)
     except Exception:
         return None
     if not row:
@@ -54,10 +54,10 @@ def build_session_provenance(
     # compression-split parents (parent.end_reason == 'compression') count
     # toward depth — delegate/branch children share the parent_session_id
     # column but are not compaction boundaries.
-    root_id = current_thot_session_id
+    root_id = current_naabiga_session_id
     compression_depth = 0
     cursor_parent = parent_id
-    seen = {current_thot_session_id}
+    seen = {current_naabiga_session_id}
     for _ in range(_MAX_WALK):
         if not cursor_parent or cursor_parent in seen:
             break
@@ -85,20 +85,20 @@ def build_session_provenance(
             is_continuation = True
 
     rotated = bool(
-        previous_thot_session_id
-        and previous_thot_session_id != current_thot_session_id
+        previous_naabiga_session_id
+        and previous_naabiga_session_id != current_naabiga_session_id
     )
 
     provenance: Dict[str, Any] = {
         "acpSessionId": acp_session_id,
-        "currentThotSessionId": current_thot_session_id,
-        "rootThotSessionId": root_id,
-        "parentThotSessionId": parent_id,
+        "currentNaabigaSessionId": current_naabiga_session_id,
+        "rootNaabigaSessionId": root_id,
+        "parentNaabigaSessionId": parent_id,
         "sessionKind": "continuation" if is_continuation else "root",
         "compressionDepth": compression_depth,
     }
-    if previous_thot_session_id:
-        provenance["previousThotSessionId"] = previous_thot_session_id
+    if previous_naabiga_session_id:
+        provenance["previousNaabigaSessionId"] = previous_naabiga_session_id
     if rotated:
         # The head moved during the last turn. The only mechanism that rotates
         # the internal id mid-turn is compression-driven session splitting.
@@ -111,17 +111,17 @@ def build_session_provenance(
 def session_provenance_meta(
     db: Any,
     acp_session_id: str,
-    current_thot_session_id: str,
+    current_naabiga_session_id: str,
     *,
-    previous_thot_session_id: Optional[str] = None,
+    previous_naabiga_session_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Return a ready ``_meta`` payload: ``{"thot": {"sessionProvenance": ...}}``."""
+    """Return a ready ``_meta`` payload: ``{"naabiga": {"sessionProvenance": ...}}``."""
     prov = build_session_provenance(
         db,
         acp_session_id,
-        current_thot_session_id,
-        previous_thot_session_id=previous_thot_session_id,
+        current_naabiga_session_id,
+        previous_naabiga_session_id=previous_naabiga_session_id,
     )
     if prov is None:
         return None
-    return {"thot": {"sessionProvenance": prov}}
+    return {"naabiga": {"sessionProvenance": prov}}

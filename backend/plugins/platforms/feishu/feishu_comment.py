@@ -985,7 +985,7 @@ def _resolve_model_and_runtime() -> Tuple[str, dict]:
     # Fall back to provider's default model if none configured
     if not model and runtime_kwargs.get("provider"):
         try:
-            from thot_cli.models import get_default_model_for_provider
+            from naabiga_cli.models import get_default_model_for_provider
             model = get_default_model_for_provider(runtime_kwargs["provider"])
         except Exception:
             pass

@@ -1,17 +1,17 @@
 # NeMo Relay Observability
 
-Optional Thot observability plugin that maps Thot observer hooks to
+Optional Naabiga observability plugin that maps Naabiga observer hooks to
 NeMo Relay scopes, LLM spans, tool spans, marks, ATOF, and ATIF.
 
 NeMo Relay is NVIDIA's runtime layer for agent execution boundaries. It does
-not replace Thot Agent's planner, tools, memory, model provider routing, or
-CLI UX. Instead, this plugin lets Thot emit NeMo Relay lifecycle events for
-the work Thot already owns: sessions, turns, provider/API calls, tool calls,
+not replace Naabiga Agent's planner, tools, memory, model provider routing, or
+CLI UX. Instead, this plugin lets Naabiga emit NeMo Relay lifecycle events for
+the work Naabiga already owns: sessions, turns, provider/API calls, tool calls,
 approval prompts, and delegated subagents.
 
-With this plugin enabled, Thot Agent can:
+With this plugin enabled, Naabiga Agent can:
 
-- Preserve Thot execution as NeMo Relay scopes, LLM spans, tool spans, and
+- Preserve Naabiga execution as NeMo Relay scopes, LLM spans, tool spans, and
   mark events.
 - Export raw lifecycle events as Agent Trajectory Observability Format (ATOF)
   JSONL for debugging and offline inspection.
@@ -38,44 +38,44 @@ https://github.com/harbor-framework/harbor/blob/main/rfcs/0001-trajectory-format
 Enable the plugin before setting export options:
 
 ```bash
-thot plugins enable observability/nemo_relay
+naabiga plugins enable observability/nemo_relay
 ```
 
-The `THOT_NEMO_RELAY_*` environment variables below only configure an
+The `NAABIGA_NEMO_RELAY_*` environment variables below only configure an
 already-enabled plugin. They do not enable plugin discovery by themselves.
 
-For isolated test homes, enable the plugin in the same `THOT_HOME` that the
+For isolated test homes, enable the plugin in the same `NAABIGA_HOME` that the
 agent run will use:
 
 ```bash
-env THOT_HOME=/tmp/thot-nemo-relay-test \
-  thot plugins enable observability/nemo_relay
+env NAABIGA_HOME=/tmp/naabiga-nemo-relay-test \
+  naabiga plugins enable observability/nemo_relay
 ```
 
 Runs started with `--ignore_user_config` skip the enabled-plugin state from
-`THOT_HOME`, so local E2E tests should omit that flag unless the test harness
+`NAABIGA_HOME`, so local E2E tests should omit that flag unless the test harness
 loads `observability/nemo_relay` explicitly another way.
 
-`THOT_HOME` is the Thot profile/config home used by both
-`thot plugins enable ...` and the later `thot chat ...` run. If unset,
-Thot uses the user's default home, usually `~/.thot`. For isolated smoke
+`NAABIGA_HOME` is the Naabiga profile/config home used by both
+`naabiga plugins enable ...` and the later `naabiga chat ...` run. If unset,
+Naabiga uses the user's default home, usually `~/.naabiga`. For isolated smoke
 tests, choose any writable temporary directory and use the same value for every
 command in that test:
 
 ```bash
-export THOT_HOME=/tmp/thot-nemo-relay-test
-thot plugins enable observability/nemo_relay
-thot chat --query 'Reply exactly ok' --provider custom --model qwen3.6:35b
+export NAABIGA_HOME=/tmp/naabiga-nemo-relay-test
+naabiga plugins enable observability/nemo_relay
+naabiga chat --query 'Reply exactly ok' --provider custom --model qwen3.6:35b
 ```
 
-For source checkouts, make sure the `thot` command you run is built from the
+For source checkouts, make sure the `naabiga` command you run is built from the
 checkout that contains this plugin. A globally installed older CLI will not see
 new bundled plugins from your working tree.
 
 ```bash
 uv sync --extra nemo-relay
-uv run thot plugins enable observability/nemo_relay
-uv run thot chat --query 'Reply exactly ok' --provider custom --model qwen3.6:35b
+uv run naabiga plugins enable observability/nemo_relay
+uv run naabiga chat --query 'Reply exactly ok' --provider custom --model qwen3.6:35b
 ```
 
 To ship the updated CLI into another environment, build and install a fresh
@@ -83,9 +83,9 @@ wheel from this checkout, then install the official NeMo Relay runtime extra:
 
 ```bash
 uv build --wheel
-python -m pip install --force-reinstall dist/thot_agent-*.whl
+python -m pip install --force-reinstall dist/naabiga_agent-*.whl
 python -m pip install "nemo-relay==0.3"
-thot plugins enable observability/nemo_relay
+naabiga plugins enable observability/nemo_relay
 ```
 
 The plugin fails open when `nemo-relay` is not installed. Install and test it against the official NeMo Relay 0.3 PyPI distribution:
@@ -96,7 +96,7 @@ pip install "nemo-relay==0.3"
 
 ## Export Configuration
 
-The plugin can configure exporters directly from `THOT_NEMO_RELAY_*`
+The plugin can configure exporters directly from `NAABIGA_NEMO_RELAY_*`
 environment variables, or delegate exporter setup to a NeMo Relay
 `plugins.toml` component config.
 
@@ -110,29 +110,29 @@ OpenInference.
 Useful local export settings after the plugin is enabled:
 
 ```bash
-export THOT_NEMO_RELAY_ATOF_ENABLED=1
-export THOT_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=.nemo-relay/atof
-export THOT_NEMO_RELAY_ATIF_ENABLED=1
-export THOT_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=.nemo-relay/atif
+export NAABIGA_NEMO_RELAY_ATOF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=.nemo-relay/atof
+export NAABIGA_NEMO_RELAY_ATIF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=.nemo-relay/atif
 ```
 
 Optional overrides:
 
-- `THOT_NEMO_RELAY_ATOF_FILENAME`
-- `THOT_NEMO_RELAY_ATOF_MODE` (`append` or `overwrite`)
-- `THOT_NEMO_RELAY_ATIF_FILENAME_TEMPLATE`
-- `THOT_NEMO_RELAY_ATIF_AGENT_NAME`
-- `THOT_NEMO_RELAY_ATIF_AGENT_VERSION`
-- `THOT_NEMO_RELAY_ATIF_MODEL_NAME`
-- `THOT_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE` (`embedded` by default; set `all` to also write standalone child files)
+- `NAABIGA_NEMO_RELAY_ATOF_FILENAME`
+- `NAABIGA_NEMO_RELAY_ATOF_MODE` (`append` or `overwrite`)
+- `NAABIGA_NEMO_RELAY_ATIF_FILENAME_TEMPLATE`
+- `NAABIGA_NEMO_RELAY_ATIF_AGENT_NAME`
+- `NAABIGA_NEMO_RELAY_ATIF_AGENT_VERSION`
+- `NAABIGA_NEMO_RELAY_ATIF_MODEL_NAME`
+- `NAABIGA_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE` (`embedded` by default; set `all` to also write standalone child files)
 
 ### NeMo Relay Component Config
 
 To initialize NeMo Relay from a component config, create a `plugins.toml` file
-and point Thot at it:
+and point Naabiga at it:
 
 ```bash
-export THOT_NEMO_RELAY_PLUGINS_TOML=.nemo-relay/plugins.toml
+export NAABIGA_NEMO_RELAY_PLUGINS_TOML=.nemo-relay/plugins.toml
 ```
 
 Minimal ATOF and ATIF config:
@@ -157,17 +157,17 @@ mode = "overwrite"
 enabled = true
 output_directory = ".nemo-relay/atif"
 filename_template = "trajectory-{session_id}.json"
-agent_name = "Thot Agent"
+agent_name = "Naabiga Agent"
 agent_version = "local"
 ```
 
-When `THOT_NEMO_RELAY_PLUGINS_TOML` is set and initializes successfully, NeMo
+When `NAABIGA_NEMO_RELAY_PLUGINS_TOML` is set and initializes successfully, NeMo
 Relay owns exporter lifecycle through that config. The direct
-`THOT_NEMO_RELAY_ATOF_*` fallback setup is skipped. If the same
+`NAABIGA_NEMO_RELAY_ATOF_*` fallback setup is skipped. If the same
 `plugins.toml` observability config enables `atif`, the direct
-`THOT_NEMO_RELAY_ATIF_*` fallback setup is also skipped so Thot does not
+`NAABIGA_NEMO_RELAY_ATIF_*` fallback setup is also skipped so Naabiga does not
 double-export trajectories on teardown. If `plugins.toml` initialization fails,
-Thot keeps the direct env-var fallbacks active for that run.
+Naabiga keeps the direct env-var fallbacks active for that run.
 
 To enable NeMo Relay managed execution intercepts for provider and tool calls,
 include an adaptive component in the same `plugins.toml`:
@@ -182,14 +182,14 @@ mode = "observe_only"
 ```
 
 When the adaptive component is enabled and the installed NeMo Relay runtime
-exposes `llm.execute(...)` / `tools.execute(...)`, Thot routes LLM and tool
+exposes `llm.execute(...)` / `tools.execute(...)`, Naabiga routes LLM and tool
 execution through those middleware boundaries. The observer hooks still emit
 session, turn, approval, and subagent marks; the plugin skips its manual
 `llm.call` and `tools.call` spans for executions that are already managed by
 NeMo Relay. `tool_parallelism.mode = "observe_only"` keeps tool scheduling
 observational while still wrapping the real execution boundary.
 
-For the full generic Thot middleware contract, see
+For the full generic Naabiga middleware contract, see
 [`docs/middleware/README.md`](../../../docs/middleware/README.md).
 
 ## Canonical Local Examples
@@ -200,10 +200,10 @@ distribution and a local Ollama model served through the OpenAI-compatible API.
 ```bash
 pip install "nemo-relay==0.3"
 
-export THOT_HOME=/tmp/thot-nemo-relay-docs/thot-home
-mkdir -p "$THOT_HOME"
+export NAABIGA_HOME=/tmp/naabiga-nemo-relay-docs/naabiga-home
+mkdir -p "$NAABIGA_HOME"
 
-cat > "$THOT_HOME/config.yaml" <<'YAML'
+cat > "$NAABIGA_HOME/config.yaml" <<'YAML'
 model:
   provider: custom
   default: qwen3.6:35b
@@ -225,22 +225,22 @@ YAML
 
 ### Delegated Subagent Tool Call
 
-This run starts a parent Thot session, delegates to a child subagent, has the
+This run starts a parent Naabiga session, delegates to a child subagent, has the
 child call `terminal`, and writes both ATOF and ATIF.
 
 ```bash
-export THOT_NEMO_RELAY_ATOF_ENABLED=1
-export THOT_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/thot-nemo-relay-docs/subagent/atof
-export THOT_NEMO_RELAY_ATOF_FILENAME=nested-subagent-atof.jsonl
-export THOT_NEMO_RELAY_ATOF_MODE=overwrite
-export THOT_NEMO_RELAY_ATIF_ENABLED=1
-export THOT_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/thot-nemo-relay-docs/subagent/atif
-export THOT_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='nested-subagent-atif-{session_id}.json'
-export THOT_NEMO_RELAY_ATIF_AGENT_NAME='Thot Agent E2E'
-export THOT_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
-export THOT_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE=all
+export NAABIGA_NEMO_RELAY_ATOF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/naabiga-nemo-relay-docs/subagent/atof
+export NAABIGA_NEMO_RELAY_ATOF_FILENAME=nested-subagent-atof.jsonl
+export NAABIGA_NEMO_RELAY_ATOF_MODE=overwrite
+export NAABIGA_NEMO_RELAY_ATIF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/naabiga-nemo-relay-docs/subagent/atif
+export NAABIGA_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='nested-subagent-atif-{session_id}.json'
+export NAABIGA_NEMO_RELAY_ATIF_AGENT_NAME='Naabiga Agent E2E'
+export NAABIGA_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
+export NAABIGA_NEMO_RELAY_ATIF_SUBAGENT_EXPORT_MODE=all
 
-thot chat \
+naabiga chat \
   --query 'Use delegate_task exactly once. Ask the child subagent to use the terminal tool exactly once to run printf docs_nested_leaf_function. After the child returns, reply with exactly: parent received nested subagent result.' \
   --provider custom \
   --model qwen3.6:35b \
@@ -261,7 +261,7 @@ Sanitized ATOF excerpt:
 
 ```jsonl
 {"kind":"scope","category":"tool","name":"delegate_task","scope_category":"start","metadata":{"session_id":"docs-parent-session","tool_call_id":"call_delegate"},"data":{"goal":"Run the command `printf docs_nested_leaf_function` using the terminal tool.","toolsets":["terminal"]}}
-{"kind":"mark","name":"thot.subagent.start","metadata":{"parent_session_id":"docs-parent-session","session_id":"docs-child-session","subagent_id":"sa-0-docs","child_role":"leaf"}}
+{"kind":"mark","name":"naabiga.subagent.start","metadata":{"parent_session_id":"docs-parent-session","session_id":"docs-child-session","subagent_id":"sa-0-docs","child_role":"leaf"}}
 {"kind":"scope","category":"tool","name":"terminal","scope_category":"end","metadata":{"session_id":"docs-child-session","tool_call_id":"call_terminal","status":"ok"},"data":"{\"output\":\"docs_nested_leaf_function\",\"exit_code\":0,\"error\":null}"}
 {"kind":"scope","category":"tool","name":"delegate_task","scope_category":"end","metadata":{"session_id":"docs-parent-session","tool_call_id":"call_delegate","status":"ok"}}
 ```
@@ -272,7 +272,7 @@ Sanitized ATIF excerpt:
 {
   "schema_version": "ATIF-v1.7",
   "session_id": "docs-parent-session",
-  "agent": {"name": "Thot Agent E2E", "version": "docs-example", "model_name": "qwen3.6:35b"},
+  "agent": {"name": "Naabiga Agent E2E", "version": "docs-example", "model_name": "qwen3.6:35b"},
   "steps": [
     {
       "source": "agent",
@@ -306,26 +306,26 @@ Sanitized ATIF excerpt:
 ### Parallel Tool Calls
 
 This run asks the model to emit two `read_file` tool calls in the same assistant
-message. Thot dispatches the read-only tools as one batch, and NeMo Relay
+message. Naabiga dispatches the read-only tools as one batch, and NeMo Relay
 records both tool invocations.
 
 ```bash
-mkdir -p /tmp/thot-nemo-relay-docs/workdir
-printf 'docs_parallel_alpha_function\n' > /tmp/thot-nemo-relay-docs/workdir/alpha.txt
-printf 'docs_parallel_beta_function\n' > /tmp/thot-nemo-relay-docs/workdir/beta.txt
-cd /tmp/thot-nemo-relay-docs/workdir
+mkdir -p /tmp/naabiga-nemo-relay-docs/workdir
+printf 'docs_parallel_alpha_function\n' > /tmp/naabiga-nemo-relay-docs/workdir/alpha.txt
+printf 'docs_parallel_beta_function\n' > /tmp/naabiga-nemo-relay-docs/workdir/beta.txt
+cd /tmp/naabiga-nemo-relay-docs/workdir
 
-export THOT_NEMO_RELAY_ATOF_ENABLED=1
-export THOT_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/thot-nemo-relay-docs/parallel/atof
-export THOT_NEMO_RELAY_ATOF_FILENAME=parallel-tools-atof.jsonl
-export THOT_NEMO_RELAY_ATOF_MODE=overwrite
-export THOT_NEMO_RELAY_ATIF_ENABLED=1
-export THOT_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/thot-nemo-relay-docs/parallel/atif
-export THOT_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='parallel-tools-atif-{session_id}.json'
-export THOT_NEMO_RELAY_ATIF_AGENT_NAME='Thot Agent E2E'
-export THOT_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
+export NAABIGA_NEMO_RELAY_ATOF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATOF_OUTPUT_DIRECTORY=/tmp/naabiga-nemo-relay-docs/parallel/atof
+export NAABIGA_NEMO_RELAY_ATOF_FILENAME=parallel-tools-atof.jsonl
+export NAABIGA_NEMO_RELAY_ATOF_MODE=overwrite
+export NAABIGA_NEMO_RELAY_ATIF_ENABLED=1
+export NAABIGA_NEMO_RELAY_ATIF_OUTPUT_DIRECTORY=/tmp/naabiga-nemo-relay-docs/parallel/atif
+export NAABIGA_NEMO_RELAY_ATIF_FILENAME_TEMPLATE='parallel-tools-atif-{session_id}.json'
+export NAABIGA_NEMO_RELAY_ATIF_AGENT_NAME='Naabiga Agent E2E'
+export NAABIGA_NEMO_RELAY_ATIF_AGENT_VERSION=docs-example
 
-thot chat \
+naabiga chat \
   --query 'Use exactly two read_file tool calls in the same assistant message. Read alpha.txt and beta.txt. Do not call terminal. After both tool results are available, reply with exactly: parallel tools complete.' \
   --provider custom \
   --model qwen3.6:35b \
@@ -358,7 +358,7 @@ Sanitized ATIF excerpt:
 {
   "schema_version": "ATIF-v1.7",
   "session_id": "docs-parallel-session",
-  "agent": {"name": "Thot Agent E2E", "version": "docs-example", "model_name": "qwen3.6:35b"},
+  "agent": {"name": "Naabiga Agent E2E", "version": "docs-example", "model_name": "qwen3.6:35b"},
   "steps": [
     {
       "source": "agent",
@@ -382,9 +382,9 @@ Sanitized ATIF excerpt:
 
 The plugin keeps NeMo Relay's native event model:
 
-- Thot sessions map to `agent` scopes.
-- Thot API request hooks map to `llm` scope start/end events.
-- Thot tool hooks map to `tool` scope start/end events.
+- Naabiga sessions map to `agent` scopes.
+- Naabiga API request hooks map to `llm` scope start/end events.
+- Naabiga tool hooks map to `tool` scope start/end events.
 - Turn, approval, subagent, and diagnostic fallback events map to `mark`
   events.
 
@@ -396,7 +396,7 @@ separate trajectories.
 
 ## Adaptive Middleware Example
 
-The `observability/nemo_relay` plugin uses Thot execution middleware to hand
+The `observability/nemo_relay` plugin uses Naabiga execution middleware to hand
 LLM and tool calls to NeMo Relay managed execution when an adaptive component is
 enabled.
 
@@ -413,26 +413,26 @@ enabled = true
 mode = "observe_only"
 ```
 
-Enable it for Thot:
+Enable it for Naabiga:
 
 ```bash
-export THOT_NEMO_RELAY_PLUGINS_TOML=/tmp/thot-middleware-test/plugins.toml
+export NAABIGA_NEMO_RELAY_PLUGINS_TOML=/tmp/naabiga-middleware-test/plugins.toml
 ```
 
 When the adaptive component is enabled and the installed NeMo Relay runtime
-exposes `llm.execute(...)` and `tools.execute(...)`, Thot routes execution
+exposes `llm.execute(...)` and `tools.execute(...)`, Naabiga routes execution
 through these boundaries:
 
 ```text
-Thot provider call
+Naabiga provider call
   -> llm_execution middleware
     -> nemo_relay.llm.execute(...)
-      -> Thot provider adapter next_call(...)
+      -> Naabiga provider adapter next_call(...)
 
-Thot tool call
+Naabiga tool call
   -> tool_execution middleware
     -> nemo_relay.tools.execute(...)
-      -> Thot tool dispatcher next_call(...)
+      -> Naabiga tool dispatcher next_call(...)
 ```
 
 The plugin still emits observer marks for sessions, turns, approvals, and
@@ -443,16 +443,16 @@ for the same execution.
 ### Local Adaptive E2E
 
 This example enables both NeMo Relay observability export and adaptive execution
-middleware for a local Thot run. This path requires a NeMo Relay runtime that
+middleware for a local Naabiga run. This path requires a NeMo Relay runtime that
 supports `[components.config.tool_parallelism]`; the `nemo-relay==0.3`
 install used by the earlier observability-only examples does not support this
 adaptive config.
 
 ```bash
-export THOT_HOME=/tmp/thot-middleware-test/thot-home
-mkdir -p "$THOT_HOME" /tmp/thot-middleware-test/nemo-relay
+export NAABIGA_HOME=/tmp/naabiga-middleware-test/naabiga-home
+mkdir -p "$NAABIGA_HOME" /tmp/naabiga-middleware-test/nemo-relay
 
-cat > "$THOT_HOME/config.yaml" <<'YAML'
+cat > "$NAABIGA_HOME/config.yaml" <<'YAML'
 model:
   provider: custom
   default: qwen3.6:35b
@@ -463,7 +463,7 @@ plugins:
     - observability/nemo_relay
 YAML
 
-cat > /tmp/thot-middleware-test/nemo-relay/plugins.toml <<'TOML'
+cat > /tmp/naabiga-middleware-test/nemo-relay/plugins.toml <<'TOML'
 version = 1
 
 [[components]]
@@ -475,15 +475,15 @@ version = 1
 
 [components.config.atof]
 enabled = true
-output_directory = "/tmp/thot-middleware-test/atof"
+output_directory = "/tmp/naabiga-middleware-test/atof"
 filename = "middleware-events.jsonl"
 mode = "overwrite"
 
 [components.config.atif]
 enabled = true
-output_directory = "/tmp/thot-middleware-test/atif"
+output_directory = "/tmp/naabiga-middleware-test/atif"
 filename_template = "middleware-trajectory-{session_id}.json"
-agent_name = "Thot Middleware E2E"
+agent_name = "Naabiga Middleware E2E"
 agent_version = "local"
 
 [[components]]
@@ -494,9 +494,9 @@ enabled = true
 mode = "observe_only"
 TOML
 
-export THOT_NEMO_RELAY_PLUGINS_TOML=/tmp/thot-middleware-test/nemo-relay/plugins.toml
+export NAABIGA_NEMO_RELAY_PLUGINS_TOML=/tmp/naabiga-middleware-test/nemo-relay/plugins.toml
 
-thot chat \
+naabiga chat \
   --query 'Use the terminal tool exactly once to run printf middleware_execution_ok. Then reply with exactly the command output.' \
   --provider custom \
   --model qwen3.6:35b \
@@ -528,7 +528,7 @@ Expected ATIF shape:
   "schema_version": "ATIF-v1.7",
   "session_id": "middleware-demo-session",
   "agent": {
-    "name": "Thot Middleware E2E",
+    "name": "Naabiga Middleware E2E",
     "version": "local",
     "model_name": "qwen3.6:35b"
   },

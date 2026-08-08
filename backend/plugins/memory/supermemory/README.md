@@ -5,28 +5,28 @@ Semantic long-term memory with profile recall, semantic search, explicit memory 
 ## Requirements
 
 - `pip install supermemory`
-- Supermemory API key from [app.supermemory.ai/integrations?connect=thot](http://app.supermemory.ai/integrations?connect=hermes)
+- Supermemory API key from [app.supermemory.ai/integrations?connect=naabiga](http://app.supermemory.ai/integrations?connect=hermes)
 
 ## Setup
 
 ```bash
-thot memory setup    # select "supermemory"
+naabiga memory setup    # select "supermemory"
 ```
 
 Or manually:
 
 ```bash
-thot config set memory.provider supermemory
-echo 'SUPERMEMORY_API_KEY=***' >> ~/.thot/.env
+naabiga config set memory.provider supermemory
+echo 'SUPERMEMORY_API_KEY=***' >> ~/.naabiga/.env
 ```
 
 ## Config
 
-Config file: `$THOT_HOME/supermemory.json`
+Config file: `$NAABIGA_HOME/supermemory.json`
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `container_tag` | `thot` | Container tag used for search and writes. Supports `{identity}` template for profile-scoped tags (e.g. `thot-{identity}` → `thot-coder`). |
+| `container_tag` | `naabiga` | Container tag used for search and writes. Supports `{identity}` template for profile-scoped tags (e.g. `naabiga-{identity}` → `naabiga-coder`). |
 | `auto_recall` | `true` | Inject relevant memory context before turns |
 | `auto_capture` | `true` | Store cleaned user-assistant turns after each response |
 | `max_recall_results` | `10` | Max recalled items to format into context |
@@ -56,15 +56,15 @@ Kebab-case names are registered for the agent; snake_case aliases remain support
 
 ## Source attribution
 
-All Supermemory API calls send `x-sm-source: thot`, and document writes stamp
-`metadata.sm_source: thot`. This is a **functional routing key, not telemetry**:
-it groups Thot-written memories into a dedicated "Thot" Space in the
+All Supermemory API calls send `x-sm-source: naabiga`, and document writes stamp
+`metadata.sm_source: naabiga`. This is a **functional routing key, not telemetry**:
+it groups Naabiga-written memories into a dedicated "Naabiga" Space in the
 Supermemory app, so you can filter, browse, and bulk-manage them per source agent
 (alongside Codex, Claude Code, etc.) from the Supermemory UI.
 
 ## Behavior
 
-When enabled, Thot can:
+When enabled, Naabiga can:
 
 - prefetch relevant memory context before each turn
 - buffer the full conversation and ingest it as **one session** at session end (or on `/reset`, branch, compression, or shutdown)
@@ -75,15 +75,15 @@ The session is written once via the conversations endpoint, which drives Superme
 
 ## Profile-Scoped Containers
 
-Use `{identity}` in the `container_tag` to scope memories per Thot profile:
+Use `{identity}` in the `container_tag` to scope memories per Naabiga profile:
 
 ```json
 {
-  "container_tag": "thot-{identity}"
+  "container_tag": "naabiga-{identity}"
 }
 ```
 
-For a profile named `coder`, this resolves to `thot-coder`. The default profile resolves to `thot-default`. Without `{identity}`, all profiles share the same container.
+For a profile named `coder`, this resolves to `naabiga-coder`. The default profile resolves to `naabiga-default`. Without `{identity}`, all profiles share the same container.
 
 ## Multi-Container Mode
 
@@ -91,7 +91,7 @@ For advanced setups (e.g. OpenClaw-style multi-workspace), you can enable custom
 
 ```json
 {
-  "container_tag": "thot",
+  "container_tag": "naabiga",
   "enable_custom_container_tags": true,
   "custom_containers": ["project-alpha", "project-beta", "shared-knowledge"],
   "custom_container_instructions": "Use project-alpha for coding tasks, project-beta for research, and shared-knowledge for team-wide facts."

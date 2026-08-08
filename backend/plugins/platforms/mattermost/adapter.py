@@ -2,7 +2,7 @@
 
 Connects to a self-hosted (or cloud) Mattermost instance via its REST API
 (v4) and WebSocket for real-time events.  No external Mattermost library
-required — uses aiohttp which is already a Thot dependency.
+required — uses aiohttp which is already a Naabiga dependency.
 
 Environment variables:
     MATTERMOST_URL              Server URL (e.g. https://mm.example.com)
@@ -1115,11 +1115,11 @@ def interactive_setup() -> None:
     helpers so the plugin's import surface stays small, prompts for the
     server URL + bot token, captures an allowlist, and offers to set a
     home channel.  Replaces the central
-    ``thot_cli/setup.py::_setup_mattermost`` function this migration
+    ``naabiga_cli/setup.py::_setup_mattermost`` function this migration
     removes.
     """
-    from thot_cli.config import get_env_value, save_env_value
-    from thot_cli.cli_output import (
+    from naabiga_cli.config import get_env_value, save_env_value
+    from naabiga_cli.cli_output import (
         prompt,
         prompt_yes_no,
         print_header,
@@ -1160,13 +1160,13 @@ def interactive_setup() -> None:
         print_info("⚠️  No allowlist set - anyone who can message the bot can use it!")
 
     print()
-    print_info("📬 Home Channel: where Thot delivers cron job results and notifications.")
+    print_info("📬 Home Channel: where Naabiga delivers cron job results and notifications.")
     print_info("   To get a channel ID: click channel name → View Info → copy the ID")
     print_info("   You can also set this later by typing /set-home in a Mattermost channel.")
     home_channel = prompt("Home channel ID (leave empty to set later with /set-home)")
     if home_channel:
         save_env_value("MATTERMOST_HOME_CHANNEL", home_channel)
-    print_info("   Open config in your editor:  thot config edit")
+    print_info("   Open config in your editor:  naabiga config edit")
 
 
 # ---------------------------------------------------------------------------
@@ -1219,12 +1219,12 @@ def _is_connected(config) -> bool:
     """Mattermost is considered connected when BOTH MATTERMOST_TOKEN and
     MATTERMOST_URL are set.
 
-    Looks up via ``thot_cli.gateway.get_env_value`` at call time (not via
+    Looks up via ``naabiga_cli.gateway.get_env_value`` at call time (not via
     the plugin's own bound import) so tests that patch
     ``gateway_mod.get_env_value`` can suppress ambient env vars.  Matches
     what the legacy connected-platforms check did before this migration.
     """
-    import thot_cli.gateway as gateway_mod
+    import naabiga_cli.gateway as gateway_mod
     return bool(
         (gateway_mod.get_env_value("MATTERMOST_TOKEN") or "").strip()
         and (gateway_mod.get_env_value("MATTERMOST_URL") or "").strip()
@@ -1242,7 +1242,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system."""
+    """Plugin entry point — called by the Naabiga plugin system."""
     ctx.register_platform(
         name="mattermost",
         label="Mattermost",
@@ -1252,7 +1252,7 @@ def register(ctx) -> None:
         required_env=["MATTERMOST_URL", "MATTERMOST_TOKEN"],
         install_hint="pip install aiohttp",
         # Interactive setup wizard — replaces the central
-        # thot_cli/setup.py::_setup_mattermost function.
+        # naabiga_cli/setup.py::_setup_mattermost function.
         setup_fn=interactive_setup,
         # YAML→env config bridge — owns the translation of
         # ``config.yaml`` ``mattermost:`` keys (require_mention,

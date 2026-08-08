@@ -4,7 +4,7 @@ Skill Manager Tool -- Agent-Managed Skill Creation & Editing
 
 Allows the agent to create, update, and delete skills, turning successful
 approaches into reusable procedural knowledge. New skills are created in
-~/.thot/skills/. Existing skills (bundled, hub-installed, or user-created)
+~/.naabiga/skills/. Existing skills (bundled, hub-installed, or user-created)
 can be modified or deleted wherever they live.
 
 Skills are the agent's procedural memory: they capture *how to do a specific
@@ -20,7 +20,7 @@ Actions:
   remove_file-- Remove a supporting file from a user skill
 
 Directory layout for user skills:
-    ~/.thot/skills/
+    ~/.naabiga/skills/
     ├── my-skill/
     │   ├── SKILL.md
     │   ├── references/
@@ -42,9 +42,9 @@ import contextvars as _ctxvars
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from thot_constants import get_thot_home, display_thot_home
+from naabiga_constants import get_naabiga_home, display_naabiga_home
 from utils import atomic_replace, is_truthy_value
-from thot_cli.config import cfg_get
+from naabiga_cli.config import cfg_get
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +105,10 @@ def _guard_agent_created_enabled() -> bool:
     Off by default because the agent can already execute the same code
     paths via terminal() with no gate, so the scan adds friction without
     meaningful security.  Users who want belt-and-suspenders can turn it
-    on via `thot config set skills.guard_agent_created true`.
+    on via `naabiga config set skills.guard_agent_created true`.
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
         cfg = load_config()
         return is_truthy_value(
             cfg_get(cfg, "skills", "guard_agent_created"),
@@ -147,9 +147,9 @@ def _security_scan_skill(skill_dir: Path) -> Optional[str]:
 import yaml
 
 
-# All skills live in ~/.thot/skills/ (single source of truth)
-THOT_HOME = get_thot_home()
-SKILLS_DIR = THOT_HOME / "skills"
+# All skills live in ~/.naabiga/skills/ (single source of truth)
+NAABIGA_HOME = get_naabiga_home()
+SKILLS_DIR = NAABIGA_HOME / "skills"
 _SKILLS_DIR_AT_IMPORT = SKILLS_DIR
 
 
@@ -157,15 +157,15 @@ def _skills_dir() -> Path:
     """Return the active profile's skills directory at call time.
 
     Long-lived multi-profile runtimes (Dashboard/TUI/Desktop backend, cron,
-    kanban workers) import this module once under the launch THOT_HOME and
+    kanban workers) import this module once under the launch NAABIGA_HOME and
     later bind a different profile per session (#40677). Honor an explicitly
     patched module-level ``SKILLS_DIR`` (tests), otherwise resolve from the
-    live profile-scoped THOT_HOME on every call.
+    live profile-scoped NAABIGA_HOME on every call.
     """
     configured = Path(SKILLS_DIR)
     if configured != _SKILLS_DIR_AT_IMPORT:
         return configured
-    return get_thot_home() / "skills"
+    return get_naabiga_home() / "skills"
 
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
@@ -285,7 +285,7 @@ def _pinned_guard(name: str) -> Optional[str]:
             return (
                 f"Skill '{name}' is pinned and cannot be deleted by "
                 f"skill_manage. Ask the user to run "
-                f"`thot curator unpin {name}` if they want to delete it. "
+                f"`naabiga curator unpin {name}` if they want to delete it. "
                 f"Patches and edits are allowed on pinned skills; only "
                 f"deletion is blocked."
             )
@@ -328,7 +328,7 @@ def _background_review_write_guard(
                     f"Refusing background curator {action} for pinned skill "
                     f"'{name}': pinned skills are off-limits to autonomous "
                     "maintenance. Ask the user to run "
-                    f"`thot curator unpin {name}` if they want it changed."
+                    f"`naabiga curator unpin {name}` if they want it changed."
                 ),
             }
     except Exception:
@@ -586,7 +586,7 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     """
     Find a skill by name across all skill directories.
 
-    Searches the local skills dir (~/.thot/skills/) first, then any
+    Searches the local skills dir (~/.naabiga/skills/) first, then any
     external dirs configured via skills.external_dirs.  Returns
     {"path": Path} or None.
     """
@@ -603,7 +603,7 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
 
 
 def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
-    """Look for ``name`` under SKILL.md across OTHER Thot profiles.
+    """Look for ``name`` under SKILL.md across OTHER Naabiga profiles.
 
     Returns a list of ``(profile_name, skill_dir)`` pairs. Used to make
     the "Skill X not found" error explain when the user is editing the
@@ -613,13 +613,13 @@ def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
     """
     matches: List[Tuple[str, Path]] = []
     try:
-        from thot_constants import get_default_thot_root
+        from naabiga_constants import get_default_naabiga_root
         from agent.skill_utils import is_excluded_skill_path
     except Exception:
         return matches
 
     try:
-        root = get_default_thot_root()
+        root = get_default_naabiga_root()
     except Exception:
         return matches
 
@@ -629,7 +629,7 @@ def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
     active_dir = _active.resolve() if _active.exists() else _active
     candidates: List[Tuple[str, Path]] = []
 
-    # Default profile (~/.thot/skills) — only consider when active is non-default.
+    # Default profile (~/.naabiga/skills) — only consider when active is non-default.
     default_skills = root / "skills"
     try:
         if default_skills.resolve() != active_dir:
@@ -637,7 +637,7 @@ def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
     except (OSError, RuntimeError):
         pass
 
-    # All named profiles (~/.thot/profiles/*/skills)
+    # All named profiles (~/.naabiga/profiles/*/skills)
     profiles_root = root / "profiles"
     if profiles_root.is_dir():
         try:
@@ -687,7 +687,7 @@ def _skill_not_found_error(name: str, suffix: str = "") -> str:
             base += (
                 f" A skill by that name exists in profile "
                 f"'{other_profile}' ({other_path}). To edit a skill in "
-                f"another profile, switch profiles (`thot -p "
+                f"another profile, switch profiles (`naabiga -p "
                 f"{other_profile}`) or operate via explicit file tools "
                 f"with ``cross_profile=True``."
             )
@@ -695,7 +695,7 @@ def _skill_not_found_error(name: str, suffix: str = "") -> str:
             names = ", ".join(f"'{p}'" for p, _ in others)
             base += (
                 f" Skills by that name exist in other profiles: {names}. "
-                f"Switch profiles (`thot -p <name>`) to edit there, or "
+                f"Switch profiles (`naabiga -p <name>`) to edit there, or "
                 f"operate via explicit file tools with ``cross_profile=True``."
             )
     else:
@@ -1087,9 +1087,9 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
         return {"success": False, "error": unsafe}
 
     # During the curator consolidation pass, a verified consolidation must be
-    # RECOVERABLE: archival into ~/.thot/skills/.archive/ is documented as
+    # RECOVERABLE: archival into ~/.naabiga/skills/.archive/ is documented as
     # the maximum destructive action the curator may take, and
-    # `thot curator restore` promises the skill can be brought back. Route
+    # `naabiga curator restore` promises the skill can be brought back. Route
     # through the recoverable archive primitive instead of permanent rmtree so
     # a misjudged consolidation can be undone (#29912). Foreground,
     # user-directed deletes keep their existing hard-delete semantics.
@@ -1408,7 +1408,7 @@ def skill_manage(
                 bump_patch(name)
             elif action == "delete":
                 # A recoverable curator archive (routed through archive_skill)
-                # keeps its usage record as STATE_ARCHIVED so `thot curator
+                # keeps its usage record as STATE_ARCHIVED so `naabiga curator
                 # status`/`restore` still see it. Only a hard delete forgets.
                 if not result.get("_archived"):
                     forget(name)
@@ -1427,7 +1427,7 @@ SKILL_MANAGE_SCHEMA = {
     "description": (
         "Manage skills (create, update, delete). Skills are your procedural "
         "memory — reusable approaches for recurring task types. "
-        f"New skills go to {display_thot_home()}/skills/; existing skills can be modified wherever they live.\n\n"
+        f"New skills go to {display_naabiga_home()}/skills/; existing skills can be modified wherever they live.\n\n"
         "Actions: create (full SKILL.md + optional category), "
         "patch (old_string/new_string — preferred for fixes), "
         "edit (full SKILL.md rewrite — major overhauls only), "
@@ -1450,7 +1450,7 @@ SKILL_MANAGE_SCHEMA = {
         "Good skills: trigger conditions, numbered steps with exact commands, "
         "pitfalls section, verification steps. Use skill_view() to see format examples.\n\n"
         "Pinned skills are protected from deletion only — skill_manage(action='delete') "
-        "will refuse with a message pointing the user to `thot curator unpin <name>`. "
+        "will refuse with a message pointing the user to `naabiga curator unpin <name>`. "
         "Patches and edits go through on pinned skills so you can still improve them as "
         "pitfalls come up; pin only guards against irrecoverable loss."
     ),

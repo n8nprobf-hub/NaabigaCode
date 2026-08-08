@@ -145,8 +145,8 @@ async def _run_turn(session: Session, user_message: str) -> None:
             session.id,
             user_message,
             emit=session.emit,
-            provider=os.getenv("THOT_INFERENCE_PROVIDER"),
-            model=os.getenv("THOT_INFERENCE_MODEL"),
+            provider=os.getenv("NAABIGA_INFERENCE_PROVIDER"),
+            model=os.getenv("NAABIGA_INFERENCE_MODEL"),
         )
         final = result.get("final_response") or ""
         if result.get("failed") and not final:

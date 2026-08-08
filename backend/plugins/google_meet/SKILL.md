@@ -6,7 +6,7 @@ platforms:
   - linux
   - macos
 metadata:
-  thot:
+  naabiga:
     tags: [meetings, google-meet, transcription, realtime-voice]
 ---
 
@@ -43,14 +43,14 @@ Pick `realtime` only when the user actually wants the agent to speak. It costs r
 Easiest path — run the built-in installer:
 
 ```bash
-thot plugins enable google_meet
-thot meet install                 # pip deps + Chromium (transcribe only)
-thot meet install --realtime      # + pulseaudio-utils / brew blackhole+ffmpeg
-thot meet auth                    # optional; skips guest-lobby wait
-thot meet setup                   # preflight checks
+naabiga plugins enable google_meet
+naabiga meet install                 # pip deps + Chromium (transcribe only)
+naabiga meet install --realtime      # + pulseaudio-utils / brew blackhole+ffmpeg
+naabiga meet auth                    # optional; skips guest-lobby wait
+naabiga meet setup                   # preflight checks
 ```
 
-`thot meet install --realtime` prompts before running `sudo apt-get` (Linux)
+`naabiga meet install --realtime` prompts before running `sudo apt-get` (Linux)
 or `brew install` (macOS). Pass `--yes` to skip the prompt. It will NOT touch
 your macOS default-input setting — you have to select BlackHole 2ch in
 System Settings yourself before starting a realtime meeting.
@@ -63,28 +63,28 @@ pip install playwright websockets && python -m playwright install chromium
 #   Linux:  sudo apt install pulseaudio-utils
 #   macOS:  brew install blackhole-2ch ffmpeg
 #           → System Settings → Sound → Input → BlackHole 2ch
-#   Then set OPENAI_API_KEY or THOT_MEET_REALTIME_KEY in ~/.thot/.env
+#   Then set OPENAI_API_KEY or NAABIGA_MEET_REALTIME_KEY in ~/.naabiga/.env
 ```
 
 For a remote node:
 ```bash
 # on the user's Mac (where Chrome is signed in):
 pip install playwright websockets && python -m playwright install chromium
-thot plugins enable google_meet
-thot meet node run --display-name my-mac    # persistent server
+naabiga plugins enable google_meet
+naabiga meet node run --display-name my-mac    # persistent server
 # copy the printed token
 
 # on the gateway:
-thot meet node approve my-mac ws://<mac-ip>:18789 <token>
-thot meet node ping my-mac                   # confirm reachable
+naabiga meet node approve my-mac ws://<mac-ip>:18789 <token>
+naabiga meet node ping my-mac                   # confirm reachable
 ```
 
-Run `thot meet setup` to preflight local prereqs.
+Run `naabiga meet setup` to preflight local prereqs.
 
 ## Flow
 
 1. **Join** — call `meet_join(url=..., mode=..., node=...)`. Returns immediately.
-2. **Announce yourself** — no auto-consent. Say (in whatever channel the user is watching): "A Thot agent bot is in this call taking notes."
+2. **Announce yourself** — no auto-consent. Say (in whatever channel the user is watching): "A Naabiga agent bot is in this call taking notes."
 3. **Poll** — `meet_status()` for liveness, `meet_transcript(last=20)` for recent captions. Don't re-read the whole transcript every turn.
 4. **Speak (realtime only)** — `meet_say(text="...")` queues text for TTS. The speech lags by ~2s. Don't spam it.
 5. **Leave** — `meet_leave()` when done, or set `duration="30m"` on `meet_join` for auto-leave.
@@ -105,8 +105,8 @@ Run `thot meet setup` to preflight local prereqs.
 ## Important limits
 
 - Captions are only as good as Google Meet's live captions. English-biased, lossy on overlapping speakers.
-- Guest mode sits in the lobby until a host admits. Warn the user; `thot meet auth` avoids this.
-- **Lobby timeout**: if the host doesn't admit the bot within 5 minutes (configurable via `THOT_MEET_LOBBY_TIMEOUT` env), the bot leaves and `meet_status` reports `leaveReason: "lobby_timeout"`.
+- Guest mode sits in the lobby until a host admits. Warn the user; `naabiga meet auth` avoids this.
+- **Lobby timeout**: if the host doesn't admit the bot within 5 minutes (configurable via `NAABIGA_MEET_LOBBY_TIMEOUT` env), the bot leaves and `meet_status` reports `leaveReason: "lobby_timeout"`.
 - **One active meeting per install per location.** A second `meet_join` leaves the first.
 - **Windows not supported.**
 - Realtime mode needs a virtual audio device. If the audio bridge setup fails, the bot falls back to transcribe mode and flags it in `meet_status().error`.
@@ -125,7 +125,7 @@ Run `thot meet setup` to preflight local prereqs.
 | `captioning` | Caption observer is installed. |
 | `transcriptLines` / `lastCaptionAt` | Transcript progress. |
 | `realtime` / `realtimeReady` | Realtime mode provisioned / WS connected. |
-| `realtimeDevice` | Audio device name the bot is feeding (e.g. `thot_meet_src`). |
+| `realtimeDevice` | Audio device name the bot is feeding (e.g. `naabiga_meet_src`). |
 | `audioBytesOut` / `lastAudioOutAt` | How much PCM the OpenAI session has produced. |
 | `lastBargeInAt` | Timestamp of the most recent `response.cancel` sent. |
 | `leaveReason` | `duration_expired`, `lobby_timeout`, `denied`, `page_closed`, or null. |
@@ -135,7 +135,7 @@ Run `thot meet setup` to preflight local prereqs.
 
 Local:
 ```
-$THOT_HOME/workspace/meetings/<meeting-id>/transcript.txt
+$NAABIGA_HOME/workspace/meetings/<meeting-id>/transcript.txt
 ```
 
 Remote node: transcript lives on the node host's disk. Use `meet_transcript(node=...)` to read it over RPC.
@@ -144,5 +144,5 @@ Remote node: transcript lives on the node host's disk. Use `meet_transcript(node
 
 - URL regex: only `https://meet.google.com/...` URLs pass.
 - No calendar scanning. No auto-dial.
-- Remote nodes use bearer-token auth; tokens are generated on the node (32 hex chars, persisted in `$THOT_HOME/workspace/meetings/node_token.json`) and must be copied to the gateway via `thot meet node approve`.
+- Remote nodes use bearer-token auth; tokens are generated on the node (32 hex chars, persisted in `$NAABIGA_HOME/workspace/meetings/node_token.json`) and must be copied to the gateway via `naabiga meet node approve`.
 - `meet_say` text is rate-limited by the OpenAI Realtime session; spam-protection is the bot's problem, not yours, but still — don't queue hundreds of lines.

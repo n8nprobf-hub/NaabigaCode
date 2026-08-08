@@ -7,7 +7,7 @@ something different on each:
   * macOS — explicit TCC grants (Accessibility + Screen Recording). cua-driver
     reports/requests them via ``permissions status`` / ``permissions grant``.
     The grants attach to cua-driver's OWN identity (``com.trycua.driver`` /
-    the installed ``CuaDriver.app``), NOT Thot — so no Thot entitlement is
+    the installed ``CuaDriver.app``), NOT Naabiga — so no Naabiga entitlement is
     involved, and ``grant`` launches CuaDriver via LaunchServices so the macOS
     dialog is attributed correctly.
   * Windows — no TCC toggles; the UIAccess worker (``cua-driver-uia.exe``) may
@@ -18,7 +18,7 @@ something different on each:
 The universal signal on every platform is ``cua-driver doctor --json`` (binary
 integrity + platform support). ``computer_use_status`` folds that together with
 the macOS permission detail into one payload for the desktop card, the
-``thot computer-use permissions`` CLI, and ``/api/tools/computer-use/status``.
+``naabiga computer-use permissions`` CLI, and ``/api/tools/computer-use/status``.
 """
 
 from __future__ import annotations
@@ -39,11 +39,11 @@ def _driver_cmd(override: Optional[str]) -> str:
     if override:
         return override
     try:
-        from thot_cli.tools_config import _cua_driver_cmd
+        from naabiga_cli.tools_config import _cua_driver_cmd
 
         return _cua_driver_cmd()
     except Exception:
-        return os.environ.get("THOT_CUA_DRIVER_CMD", "").strip() or "cua-driver"
+        return os.environ.get("NAABIGA_CUA_DRIVER_CMD", "").strip() or "cua-driver"
 
 
 def _child_env() -> Dict[str, str]:
@@ -177,7 +177,7 @@ def request_permissions_grant(driver_cmd: Optional[str] = None) -> int:
 
     binary = shutil.which(_driver_cmd(driver_cmd))
     if not binary:
-        print("cua-driver: not installed. Run: thot computer-use install")
+        print("cua-driver: not installed. Run: naabiga computer-use install")
         return 2
 
     print(

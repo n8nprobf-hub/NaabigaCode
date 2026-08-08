@@ -74,8 +74,8 @@ async function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        // Config Thot : THOT_HOME explicite si fourni, sinon home utilisateur.
-        ...(process.env.THOT_HOME ? {} : { THOT_HOME: process.env.THOT_HOME_NAABIGA ?? join(process.env.HOME || '', '.thot') }),
+        // Config Naabiga : NAABIGA_HOME explicite si fourni, sinon home utilisateur.
+        ...(process.env.NAABIGA_HOME ? {} : { NAABIGA_HOME: process.env.NAABIGA_HOME_NAABIGA ?? join(process.env.HOME || '', '.naabiga') }),
       },
     })
     backendProc.stdout?.on('data', (d) => process.stderr.write(`[backend] ${d}`))

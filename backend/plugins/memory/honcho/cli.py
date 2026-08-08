@@ -1,6 +1,6 @@
 """CLI commands for Honcho integration management.
 
-Handles: thot honcho setup | status | sessions | map | peer
+Handles: naabiga honcho setup | status | sessions | map | peer
 """
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ import os
 import sys
 from pathlib import Path
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 from plugins.memory.honcho.client import _host_block, profile_host_key, resolve_active_host, resolve_config_path, HOST
-from thot_cli.config import cfg_get
+from naabiga_cli.config import cfg_get
 
 
 def clone_honcho_for_profile(profile_name: str) -> bool:
@@ -102,7 +102,7 @@ def cmd_enable(args) -> None:
     """Enable Honcho for the active profile."""
     cfg = _read_config()
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
     block = cfg.setdefault("hosts", {}).setdefault(host, {})
 
     if block.get("enabled") is True:
@@ -145,7 +145,7 @@ def cmd_disable(args) -> None:
     """Disable Honcho for the active profile."""
     cfg = _read_config()
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
     block = cfg_get(cfg, "hosts", host, default={})
 
     if not block or block.get("enabled") is False:
@@ -161,11 +161,11 @@ def cmd_disable(args) -> None:
 def cmd_sync(args) -> None:
     """Sync Honcho config to all existing profiles.
 
-    Scans all Thot profiles and creates host blocks for any that don't
+    Scans all Naabiga profiles and creates host blocks for any that don't
     have one yet. Inherits settings from the default host block.
     """
     try:
-        from thot_cli.profiles import list_profiles
+        from naabiga_cli.profiles import list_profiles
         profiles = list_profiles()
     except Exception as e:
         print(f"  Could not list profiles: {e}\n")
@@ -173,7 +173,7 @@ def cmd_sync(args) -> None:
 
     cfg = _read_config()
     if not cfg:
-        print("  No Honcho config found. Run 'thot honcho setup' first.\n")
+        print("  No Honcho config found. Run 'naabiga honcho setup' first.\n")
         return
 
     hosts = cfg.get("hosts", {})
@@ -181,7 +181,7 @@ def cmd_sync(args) -> None:
     has_key = bool(cfg.get("apiKey") or os.environ.get("HONCHO_API_KEY"))
 
     if not default_block and not has_key:
-        print("  Honcho not configured on default profile. Run 'thot honcho setup' first.\n")
+        print("  Honcho not configured on default profile. Run 'naabiga honcho setup' first.\n")
         return
 
     created = 0
@@ -207,10 +207,10 @@ def cmd_sync(args) -> None:
 def sync_honcho_profiles_quiet() -> int:
     """Sync Honcho host blocks for all profiles. Returns count of newly created blocks.
 
-    Called from `thot update` -- no output, no exceptions.
+    Called from `naabiga update` -- no output, no exceptions.
     """
     try:
-        from thot_cli.profiles import list_profiles
+        from naabiga_cli.profiles import list_profiles
         profiles = list_profiles()
     except Exception:
         return 0
@@ -237,7 +237,7 @@ _profile_override: str | None = None
 
 
 def _host_key() -> str:
-    """Return the active Honcho host key, derived from the current Thot profile."""
+    """Return the active Honcho host key, derived from the current Naabiga profile."""
     if _profile_override:
         if _profile_override in {"default", "custom"}:
             return HOST
@@ -253,11 +253,11 @@ def _config_path() -> Path:
 def _local_config_path() -> Path:
     """Return the instance-local Honcho config path for writing.
 
-    Always returns $THOT_HOME/honcho.json so each profile/instance gets
+    Always returns $NAABIGA_HOME/honcho.json so each profile/instance gets
     its own config file.  The global ~/.honcho/config.json is only used as
     a read fallback (via resolve_config_path) for cross-app interop.
     """
-    return get_thot_home() / "honcho.json"
+    return get_naabiga_home() / "honcho.json"
 
 
 def _read_config() -> dict:
@@ -321,7 +321,7 @@ _IDENTITY_MAPPING_KEYS = (
 
 
 def _resolve_effective_identity_mapping(
-    cfg: dict, thot_host: dict
+    cfg: dict, naabiga_host: dict
 ) -> tuple[bool, dict, str, bool, bool]:
     """Resolve the effective identity-mapping state for the active host.
 
@@ -338,8 +338,8 @@ def _resolve_effective_identity_mapping(
     """
     pin = False
     for val in (
-        thot_host.get("pinUserPeer"),
-        thot_host.get("pinPeerName"),
+        naabiga_host.get("pinUserPeer"),
+        naabiga_host.get("pinPeerName"),
         cfg.get("pinUserPeer"),
         cfg.get("pinPeerName"),
     ):
@@ -347,16 +347,16 @@ def _resolve_effective_identity_mapping(
             pin = bool(val)
             break
 
-    if "userPeerAliases" in thot_host:
-        aliases_src = thot_host.get("userPeerAliases")
+    if "userPeerAliases" in naabiga_host:
+        aliases_src = naabiga_host.get("userPeerAliases")
         aliases_from_root = False
     else:
         aliases_src = cfg.get("userPeerAliases")
         aliases_from_root = aliases_src is not None
     aliases = aliases_src if isinstance(aliases_src, dict) else {}
 
-    if "runtimePeerPrefix" in thot_host:
-        prefix_src = thot_host.get("runtimePeerPrefix")
+    if "runtimePeerPrefix" in naabiga_host:
+        prefix_src = naabiga_host.get("runtimePeerPrefix")
         prefix_from_root = False
     else:
         prefix_src = cfg.get("runtimePeerPrefix")
@@ -366,14 +366,14 @@ def _resolve_effective_identity_mapping(
     return pin, aliases, prefix, aliases_from_root, prefix_from_root
 
 
-def _scrub_identity_mapping(thot_host: dict) -> None:
+def _scrub_identity_mapping(naabiga_host: dict) -> None:
     """Drop every peer-mapping key from the host block.
 
     Called before the wizard writes a chosen shape so a stale alias, prefix,
     or pin from an earlier run can't bleed into the new mapping.
     """
     for key in _IDENTITY_MAPPING_KEYS:
-        thot_host.pop(key, None)
+        naabiga_host.pop(key, None)
 
 
 def _migrate_pin_key(block: dict) -> bool:
@@ -397,7 +397,7 @@ def _gateway_platforms() -> list[str] | None:
     Identity mapping only affects gateway runtime users, so setup gates the
     whole step on this.  Best-effort and dependency-free: the memory plugin
     must not hard-depend on the gateway package, so the import is lazy and
-    guarded (matching the idiom thot_cli already uses for gateway refs).
+    guarded (matching the idiom naabiga_cli already uses for gateway refs).
     """
     try:
         from gateway.config import load_gateway_config
@@ -425,27 +425,27 @@ def _collect_operator_aliases(existing: dict, peer_target: str) -> dict:
 
 
 def _apply_runtime_prefix(
-    thot_host: dict, current_prefix: str, prefix_from_root: bool, label: str
+    naabiga_host: dict, current_prefix: str, prefix_from_root: bool, label: str
 ) -> None:
     """Write a host-level runtimePeerPrefix only when it diverges from an
     inherited root value; otherwise let the root cascade stand."""
     new_prefix = _prompt(label, default=current_prefix or "").strip()
     if new_prefix and not (prefix_from_root and new_prefix == current_prefix):
-        thot_host["runtimePeerPrefix"] = new_prefix
+        naabiga_host["runtimePeerPrefix"] = new_prefix
 
 
-def _echo_identity_mapping(thot_host: dict) -> None:
+def _echo_identity_mapping(naabiga_host: dict) -> None:
     """Show the resulting keys so the operator can verify what was written."""
-    aliases = thot_host.get("userPeerAliases")
-    prefix = thot_host.get("runtimePeerPrefix")
+    aliases = naabiga_host.get("userPeerAliases")
+    prefix = naabiga_host.get("runtimePeerPrefix")
     print("  resolved →")
-    print(f"    pinUserPeer       = {bool(thot_host.get('pinUserPeer'))}")
+    print(f"    pinUserPeer       = {bool(naabiga_host.get('pinUserPeer'))}")
     print(f"    userPeerAliases   = {aliases if aliases else '{}'}")
     print(f"    runtimePeerPrefix = {prefix if prefix else '(none)'}")
 
 
 def _configure_raw_identity_mapping(
-    thot_host: dict,
+    naabiga_host: dict,
     current_pin: bool,
     current_aliases: dict,
     current_prefix: str,
@@ -459,8 +459,8 @@ def _configure_raw_identity_mapping(
         default=str(bool(current_pin)).lower(),
     ).strip().lower()
     pin = pin_in in {"true", "t", "yes", "y", "1"}
-    _scrub_identity_mapping(thot_host)
-    thot_host["pinUserPeer"] = pin
+    _scrub_identity_mapping(naabiga_host)
+    naabiga_host["pinUserPeer"] = pin
     if pin:
         return
     aliases = (
@@ -478,9 +478,9 @@ def _configure_raw_identity_mapping(
             if rid and peer:
                 aliases[rid] = peer
     if aliases:
-        thot_host["userPeerAliases"] = aliases
+        naabiga_host["userPeerAliases"] = aliases
     _apply_runtime_prefix(
-        thot_host, current_prefix, prefix_from_root,
+        naabiga_host, current_prefix, prefix_from_root,
         "runtimePeerPrefix — namespace for unknown IDs (blank for none)",
     )
 
@@ -491,7 +491,7 @@ def _prompt(label: str, default: str | None = None, secret: bool = False) -> str
     sys.stdout.flush()
     if secret:
         if sys.stdin.isatty():
-            from thot_cli.secret_prompt import masked_secret_prompt
+            from naabiga_cli.secret_prompt import masked_secret_prompt
             val = masked_secret_prompt("")
         else:
             # Non-TTY (piped input, test runners) — read plaintext
@@ -516,7 +516,7 @@ def _ensure_sdk_installed() -> bool:
         return False
 
     print("  Installing honcho-ai...", flush=True)
-    from thot_cli.tools_config import _pip_install
+    from naabiga_cli.tools_config import _pip_install
 
     result = _pip_install(["honcho-ai>=2.0.1"])
     if result.returncode == 0:
@@ -535,7 +535,7 @@ def cmd_setup(args) -> None:
     write_path = _local_config_path()
     read_path = _config_path()
     print("\nHoncho memory setup\n" + "─" * 40)
-    print("  Honcho gives Thot persistent cross-session memory.")
+    print("  Honcho gives Naabiga persistent cross-session memory.")
     print(f"  Config: {write_path}")
     if read_path != write_path and read_path.exists():
         print(f"  (seeding from existing config at {read_path})")
@@ -545,11 +545,11 @@ def cmd_setup(args) -> None:
         return
 
     hosts = cfg.setdefault("hosts", {})
-    thot_host = hosts.setdefault(_host_key(), {})
+    naabiga_host = hosts.setdefault(_host_key(), {})
 
     # Canonicalize any legacy pinPeerName before detection/writes.
     _migrate_pin_key(cfg)
-    _migrate_pin_key(thot_host)
+    _migrate_pin_key(naabiga_host)
 
     # --- 1. Cloud or local? ---
     print("  Deployment:")
@@ -582,7 +582,7 @@ def cmd_setup(args) -> None:
         # apiKey) so ``get_honcho_client`` recognises it as an explicit
         # local auth opt-in (see ``_host_has_key`` in client.py) and
         # cloud/hybrid switching is unaffected.
-        current_host_key = thot_host.get("apiKey", "")
+        current_host_key = naabiga_host.get("apiKey", "")
         masked = (
             f"...{current_host_key[-8:]}"
             if len(current_host_key) > 8
@@ -601,7 +601,7 @@ def cmd_setup(args) -> None:
             secret=True,
         )
         if new_local_key:
-            thot_host["apiKey"] = new_local_key
+            naabiga_host["apiKey"] = new_local_key
         elif current_host_key:
             print("  Keeping existing local JWT.")
         else:
@@ -626,7 +626,7 @@ def cmd_setup(args) -> None:
         # Detect an existing OAuth grant so re-running setup reflects it instead
         # of looking like a fresh connect.
         from plugins.memory.honcho.oauth import OAuthCredential
-        existing_oauth = OAuthCredential.from_host_block(thot_host)
+        existing_oauth = OAuthCredential.from_host_block(naabiga_host)
 
         print("\n  Auth method:")
         if existing_oauth is not None:
@@ -653,19 +653,19 @@ def cmd_setup(args) -> None:
             try:
                 cred = authorize_via_loopback(
                     config_path=write_path,
-                    source="thot-cli",
+                    source="naabiga-cli",
                     apply_config=False,
                     open_url=_open,
                 )
             except Exception as e:
                 print(f"  OAuth sign-in failed: {e}")
-                print("  Re-run 'thot honcho setup' to retry, or choose an API key instead.\n")
+                print("  Re-run 'naabiga honcho setup' to retry, or choose an API key instead.\n")
                 return
-            thot_host["apiKey"] = cred.access_token
-            thot_host["oauth"] = cred.oauth_block()
+            naabiga_host["apiKey"] = cred.access_token
+            naabiga_host["oauth"] = cred.oauth_block()
             # Default the peer prompt to the name entered at consent.
             if cred.consent_peer_name:
-                thot_host["peerName"] = cred.consent_peer_name
+                naabiga_host["peerName"] = cred.consent_peer_name
             print("  Authorized — token saved. Let's finish configuring.\n")
         else:
             current_key = cfg.get("apiKey", "")
@@ -677,27 +677,27 @@ def cmd_setup(args) -> None:
 
             if not cfg.get("apiKey"):
                 print("\n  No API key configured. Get yours at https://app.honcho.dev")
-                print("  Run 'thot honcho setup' again once you have a key.\n")
+                print("  Run 'naabiga honcho setup' again once you have a key.\n")
                 return
 
     # --- 3. Identity ---
-    current_peer = thot_host.get("peerName") or cfg.get("peerName", "")
+    current_peer = naabiga_host.get("peerName") or cfg.get("peerName", "")
     new_peer = _prompt("Your name (user peer)", default=current_peer or os.getenv("USER", "user"))
     if new_peer:
-        thot_host["peerName"] = new_peer
+        naabiga_host["peerName"] = new_peer
 
-    current_ai = thot_host.get("aiPeer") or cfg.get("aiPeer", "thot")
+    current_ai = naabiga_host.get("aiPeer") or cfg.get("aiPeer", "naabiga")
     new_ai = _prompt("AI peer name", default=current_ai)
     if new_ai:
-        thot_host["aiPeer"] = new_ai
+        naabiga_host["aiPeer"] = new_ai
 
-    current_workspace = thot_host.get("workspace") or cfg.get("workspace", "thot")
+    current_workspace = naabiga_host.get("workspace") or cfg.get("workspace", "naabiga")
     new_workspace = _prompt("Workspace ID", default=current_workspace)
     if new_workspace:
-        thot_host["workspace"] = new_workspace
+        naabiga_host["workspace"] = new_workspace
 
     # --- 3b. Gateway identity mapping ---
-    # These keys only affect the Thot GATEWAY (Telegram/Discord/Slack/...),
+    # These keys only affect the Naabiga GATEWAY (Telegram/Discord/Slack/...),
     # the one entrypoint that supplies a runtime user ID.  CLI/TUI/desktop/ACP
     # sessions have no runtime ID and fall through to peerName, so the step is
     # moot off-gateway — gate it behind detection.
@@ -711,7 +711,7 @@ def cmd_setup(args) -> None:
         current_prefix,
         aliases_from_root,
         prefix_from_root,
-    ) = _resolve_effective_identity_mapping(cfg, thot_host)
+    ) = _resolve_effective_identity_mapping(cfg, naabiga_host)
 
     if current_pin:
         current_shape = "single"
@@ -724,7 +724,7 @@ def cmd_setup(args) -> None:
     if gw_platforms is None:
         print("\n  Gateway identity mapping routes platform users to memory peers.")
         run_mapping = _prompt(
-            "Running the Thot gateway (Telegram/Discord/etc.)? (y/N)",
+            "Running the Naabiga gateway (Telegram/Discord/etc.)? (y/N)",
             default="n",
         ).strip().lower() in {"y", "yes"}
     elif not gw_platforms:
@@ -738,7 +738,7 @@ def cmd_setup(args) -> None:
         run_mapping = True
 
     if run_mapping:
-        peer_target = thot_host.get("peerName") or current_peer or "user"
+        peer_target = naabiga_host.get("peerName") or current_peer or "user"
         default_choice = {"single": "1", "hybrid": "2", "multi": "3"}.get(current_shape, "3")
         print("\n  How should gateway users map to memory peers?")
         print("    [1] just me — every non-agent user collapses to your peer")
@@ -779,10 +779,10 @@ def cmd_setup(args) -> None:
         # Each branch scrubs every peer-mapping key first so a stale alias,
         # prefix, or pin from an earlier run starts clean.
         if shape == "single":
-            _scrub_identity_mapping(thot_host)
-            thot_host["pinUserPeer"] = True
+            _scrub_identity_mapping(naabiga_host)
+            naabiga_host["pinUserPeer"] = True
             print(f"  All non-agent gateway users route to '{peer_target}' (pin overrides aliases).")
-            _echo_identity_mapping(thot_host)
+            _echo_identity_mapping(naabiga_host)
         elif shape == "multi":
             # Preserve operator-curated host-level aliases across multi → multi
             # re-runs.  Root-sourced aliases cascade naturally and are NOT
@@ -792,51 +792,51 @@ def cmd_setup(args) -> None:
                 if isinstance(current_aliases, dict) and not aliases_from_root
                 else {}
             )
-            _scrub_identity_mapping(thot_host)
-            thot_host["pinUserPeer"] = False
+            _scrub_identity_mapping(naabiga_host)
+            naabiga_host["pinUserPeer"] = False
             if prior_aliases:
-                thot_host["userPeerAliases"] = prior_aliases
+                naabiga_host["userPeerAliases"] = prior_aliases
             _apply_runtime_prefix(
-                thot_host, current_prefix, prefix_from_root,
+                naabiga_host, current_prefix, prefix_from_root,
                 "Runtime peer prefix (e.g. 'telegram_', blank for none)",
             )
             print("  Each gateway user → own peer.")
-            _echo_identity_mapping(thot_host)
+            _echo_identity_mapping(naabiga_host)
         elif shape == "hybrid":
             existing_aliases = dict(current_aliases) if isinstance(current_aliases, dict) else {}
-            _scrub_identity_mapping(thot_host)
-            thot_host["pinUserPeer"] = False
+            _scrub_identity_mapping(naabiga_host)
+            naabiga_host["pinUserPeer"] = False
             merged = _collect_operator_aliases(existing_aliases, peer_target)
             if merged:
-                thot_host["userPeerAliases"] = merged
+                naabiga_host["userPeerAliases"] = merged
             _apply_runtime_prefix(
-                thot_host, current_prefix, prefix_from_root,
+                naabiga_host, current_prefix, prefix_from_root,
                 "Runtime peer prefix for unknown users (e.g. 'telegram_', blank for none)",
             )
             print(f"  Your runtime IDs → '{peer_target}', others → own peer.")
-            _echo_identity_mapping(thot_host)
+            _echo_identity_mapping(naabiga_host)
         elif shape == "raw":
             _configure_raw_identity_mapping(
-                thot_host, current_pin, current_aliases, current_prefix,
+                naabiga_host, current_pin, current_aliases, current_prefix,
                 aliases_from_root, prefix_from_root,
             )
-            _echo_identity_mapping(thot_host)
+            _echo_identity_mapping(naabiga_host)
         else:  # skip
             print("  Identity mapping left untouched.")
 
     # --- 4. Observation mode ---
-    current_obs = thot_host.get("observationMode") or cfg.get("observationMode", "directional")
+    current_obs = naabiga_host.get("observationMode") or cfg.get("observationMode", "directional")
     print("\n  Observation mode:")
     print("    directional  -- all observations on, each AI peer builds its own view (default)")
     print("    unified      -- user observes self, AI observes others only")
     new_obs = _prompt("Observation mode", default=current_obs)
     if new_obs in {"unified", "directional"}:
-        thot_host["observationMode"] = new_obs
+        naabiga_host["observationMode"] = new_obs
     else:
-        thot_host["observationMode"] = "directional"
+        naabiga_host["observationMode"] = "directional"
 
     # --- 5. Write frequency ---
-    current_wf = str(thot_host.get("writeFrequency") or cfg.get("writeFrequency", "async"))
+    current_wf = str(naabiga_host.get("writeFrequency") or cfg.get("writeFrequency", "async"))
     print("\n  Write frequency:")
     print("    async   -- background thread, no token cost (recommended)")
     print("    turn    -- sync write after every turn")
@@ -844,12 +844,12 @@ def cmd_setup(args) -> None:
     print("    N       -- write every N turns (e.g. 5)")
     new_wf = _prompt("Write frequency", default=current_wf)
     try:
-        thot_host["writeFrequency"] = int(new_wf)
+        naabiga_host["writeFrequency"] = int(new_wf)
     except (ValueError, TypeError):
-        thot_host["writeFrequency"] = new_wf if new_wf in {"async", "turn", "session"} else "async"
+        naabiga_host["writeFrequency"] = new_wf if new_wf in {"async", "turn", "session"} else "async"
 
     # --- 6. Recall mode ---
-    _raw_recall = thot_host.get("recallMode") or cfg.get("recallMode", "hybrid")
+    _raw_recall = naabiga_host.get("recallMode") or cfg.get("recallMode", "hybrid")
     current_recall = "hybrid" if _raw_recall not in {"hybrid", "context", "tools"} else _raw_recall
     print("\n  Recall mode:")
     print("    hybrid  -- auto-injected context + Honcho tools available (default)")
@@ -857,29 +857,29 @@ def cmd_setup(args) -> None:
     print("    tools   -- Honcho tools only, no auto-injected context")
     new_recall = _prompt("Recall mode", default=current_recall)
     if new_recall in {"hybrid", "context", "tools"}:
-        thot_host["recallMode"] = new_recall
+        naabiga_host["recallMode"] = new_recall
 
     # --- 7. Context token budget ---
-    current_ctx_tokens = thot_host.get("contextTokens") or cfg.get("contextTokens")
+    current_ctx_tokens = naabiga_host.get("contextTokens") or cfg.get("contextTokens")
     current_display = str(current_ctx_tokens) if current_ctx_tokens else "uncapped"
     print("\n  Context injection per turn (hybrid/context recall modes only):")
     print("    uncapped -- no limit (default)")
     print("    N        -- token limit per turn (e.g. 1200)")
     new_ctx_tokens = _prompt("Context tokens", default=current_display)
     if new_ctx_tokens.strip().lower() in {"none", "uncapped", "no limit"}:
-        thot_host.pop("contextTokens", None)
+        naabiga_host.pop("contextTokens", None)
     elif new_ctx_tokens.strip() == "":
         pass  # keep current
     else:
         try:
             val = int(new_ctx_tokens)
             if val >= 0:
-                thot_host["contextTokens"] = val
+                naabiga_host["contextTokens"] = val
         except (ValueError, TypeError):
             pass  # keep current
 
     # --- 7b. Dialectic cadence ---
-    current_dialectic = str(thot_host.get("dialecticCadence") or cfg.get("dialecticCadence") or "2")
+    current_dialectic = str(naabiga_host.get("dialecticCadence") or cfg.get("dialecticCadence") or "2")
     print("\n  Dialectic cadence:")
     print("    How often Honcho rebuilds its user model (LLM call on Honcho backend).")
     print("    1 = every turn, 2 = every other turn, 3+ = sparser.")
@@ -888,13 +888,13 @@ def cmd_setup(args) -> None:
     try:
         val = int(new_dialectic)
         if val >= 1:
-            thot_host["dialecticCadence"] = val
+            naabiga_host["dialecticCadence"] = val
     except (ValueError, TypeError):
-        thot_host["dialecticCadence"] = 2
+        naabiga_host["dialecticCadence"] = 2
 
     # --- 7c. Dialectic reasoning level ---
     current_reasoning = (
-        thot_host.get("dialecticReasoningLevel")
+        naabiga_host.get("dialecticReasoningLevel")
         or cfg.get("dialecticReasoningLevel")
         or "low"
     )
@@ -907,12 +907,12 @@ def cmd_setup(args) -> None:
     print("    max      -- thorough audit-level analysis")
     new_reasoning = _prompt("Reasoning level", default=current_reasoning)
     if new_reasoning in {"minimal", "low", "medium", "high", "max"}:
-        thot_host["dialecticReasoningLevel"] = new_reasoning
+        naabiga_host["dialecticReasoningLevel"] = new_reasoning
     else:
-        thot_host["dialecticReasoningLevel"] = "low"
+        naabiga_host["dialecticReasoningLevel"] = "low"
 
     # --- 8. Session strategy ---
-    current_strat = thot_host.get("sessionStrategy") or cfg.get("sessionStrategy", "per-session")
+    current_strat = naabiga_host.get("sessionStrategy") or cfg.get("sessionStrategy", "per-session")
     print("\n  Session strategy:")
     print("    per-session   -- each run starts clean, Honcho injects context automatically")
     print("    per-directory -- reuses session per dir, prior context auto-injected each run")
@@ -920,24 +920,24 @@ def cmd_setup(args) -> None:
     print("    global        -- single session across all directories")
     new_strat = _prompt("Session strategy", default=current_strat)
     if new_strat in {"per-session", "per-repo", "per-directory", "global"}:
-        thot_host["sessionStrategy"] = new_strat
+        naabiga_host["sessionStrategy"] = new_strat
 
-    thot_host["enabled"] = True
-    thot_host.setdefault("saveMessages", True)
+    naabiga_host["enabled"] = True
+    naabiga_host.setdefault("saveMessages", True)
 
     _write_config(cfg)
     print(f"\n  Config written to {write_path}")
 
     # --- Auto-enable Honcho as memory provider in config.yaml ---
     try:
-        from thot_cli.config import load_config, save_config
-        thot_config = load_config()
-        thot_config.setdefault("memory", {})["provider"] = "honcho"
-        save_config(thot_config)
+        from naabiga_cli.config import load_config, save_config
+        naabiga_config = load_config()
+        naabiga_config.setdefault("memory", {})["provider"] = "honcho"
+        save_config(naabiga_config)
         print("  Memory provider set to 'honcho' in config.yaml")
     except Exception as e:
         print(f"  Could not auto-enable in config.yaml: {e}")
-        print("  Run: thot config set memory.provider honcho")
+        print("  Run: naabiga config set memory.provider honcho")
 
     # --- Test connection ---
     print("  Testing connection... ", end="", flush=True)
@@ -967,19 +967,19 @@ def cmd_setup(args) -> None:
     print("    honcho_reasoning -- ask Honcho a question, synthesized answer")
     print("    honcho_conclude  -- persist a user fact to memory")
     print("\n  Other commands:")
-    print("    thot honcho status     -- show full config")
-    print("    thot honcho mode       -- change recall/observation mode")
-    print("    thot honcho tokens     -- tune context and dialectic budgets")
-    print("    thot honcho peer       -- update peer names")
-    print("    thot honcho map <name> -- map this directory to a session name\n")
+    print("    naabiga honcho status     -- show full config")
+    print("    naabiga honcho mode       -- change recall/observation mode")
+    print("    naabiga honcho tokens     -- tune context and dialectic budgets")
+    print("    naabiga honcho peer       -- update peer names")
+    print("    naabiga honcho map <name> -- map this directory to a session name\n")
 
 
 def _active_profile_name() -> str:
-    """Return the active Thot profile name (respects --target-profile override)."""
+    """Return the active Naabiga profile name (respects --target-profile override)."""
     if _profile_override:
         return _profile_override
     try:
-        from thot_cli.profiles import get_active_profile_name
+        from naabiga_cli.profiles import get_active_profile_name
         return get_active_profile_name()
     except Exception:
         return "default"
@@ -991,7 +991,7 @@ def _all_profile_host_configs() -> list[tuple[str, str, dict]]:
     Reads honcho.json once and maps each profile to its host block.
     """
     try:
-        from thot_cli.profiles import list_profiles
+        from naabiga_cli.profiles import list_profiles
         profiles = list_profiles()
     except Exception:
         return [(_active_profile_name(), _host_key(), {})]
@@ -1024,7 +1024,7 @@ def cmd_status(args) -> None:
     try:
         import honcho  # noqa: F401
     except ImportError:
-        print("  honcho-ai is not installed. Run: thot honcho setup\n")
+        print("  honcho-ai is not installed. Run: naabiga honcho setup\n")
         return
 
     cfg = _read_config()
@@ -1042,11 +1042,11 @@ def cmd_status(args) -> None:
                 cfg = {"apiKey": _env_cfg.api_key, "enabled": _env_cfg.enabled}
             else:
                 print(f"  No Honcho config found at {active_path}")
-                print("  Run 'thot honcho setup' to configure.\n")
+                print("  Run 'naabiga honcho setup' to configure.\n")
                 return
         except Exception:
             print(f"  No Honcho config found at {active_path}")
-            print("  Run 'thot honcho setup' to configure.\n")
+            print("  Run 'naabiga honcho setup' to configure.\n")
             return
 
     try:
@@ -1209,7 +1209,7 @@ def cmd_sessions(args) -> None:
 
     if not sessions:
         print("  No session mappings configured.\n")
-        print("  Add one with: thot honcho map <session-name>")
+        print("  Add one with: naabiga honcho map <session-name>")
         print(f"  Or edit {_config_path()} directly.\n")
         return
 
@@ -1260,16 +1260,16 @@ def cmd_peer(args) -> None:
     if user_name is None and ai_name is None and reasoning is None:
         # Show current values
         hosts = cfg.get("hosts", {})
-        thot = hosts.get(_host_key(), {})
-        user = thot.get('peerName') or cfg.get('peerName') or '(not set)'
-        ai = thot.get('aiPeer') or cfg.get('aiPeer') or _host_key()
-        lvl = thot.get("dialecticReasoningLevel") or cfg.get("dialecticReasoningLevel") or "low"
-        max_chars = thot.get("dialecticMaxChars") or cfg.get("dialecticMaxChars") or 600
+        naabiga = hosts.get(_host_key(), {})
+        user = naabiga.get('peerName') or cfg.get('peerName') or '(not set)'
+        ai = naabiga.get('aiPeer') or cfg.get('aiPeer') or _host_key()
+        lvl = naabiga.get("dialecticReasoningLevel") or cfg.get("dialecticReasoningLevel") or "low"
+        max_chars = naabiga.get("dialecticMaxChars") or cfg.get("dialecticMaxChars") or 600
         print("\nHoncho peers\n" + "─" * 40)
         print(f"  User peer:   {user}")
         print("    Your identity in Honcho. Messages you send build this peer's card.")
         print(f"  AI peer:     {ai}")
-        print("    Thot' identity in Honcho. Seed with 'thot honcho identity <file>'.")
+        print("    Naabiga' identity in Honcho. Seed with 'naabiga honcho identity <file>'.")
         print("    Dialectic calls ask this peer questions to warm session context.")
         print()
         print(f"  Dialectic reasoning:  {lvl}  ({', '.join(REASONING_LEVELS)})")
@@ -1277,7 +1277,7 @@ def cmd_peer(args) -> None:
         return
 
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
 
     if user_name is not None:
         cfg.setdefault("hosts", {}).setdefault(host, {})["peerName"] = user_name.strip()
@@ -1322,7 +1322,7 @@ def cmd_mode(args) -> None:
         for m, desc in MODES.items():
             marker = " <-" if m == current else ""
             print(f"  {m:<10}  {desc}{marker}")
-        print("\n  Set with: thot honcho mode [hybrid|context|tools]\n")
+        print("\n  Set with: naabiga honcho mode [hybrid|context|tools]\n")
         return
 
     if mode_arg not in MODES:
@@ -1330,7 +1330,7 @@ def cmd_mode(args) -> None:
         return
 
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
     cfg.setdefault("hosts", {}).setdefault(host, {})["recallMode"] = mode_arg
     _write_config(cfg)
     print(f"  {label}Recall mode -> {mode_arg}  ({MODES[mode_arg]})\n")
@@ -1357,7 +1357,7 @@ def cmd_strategy(args) -> None:
         for s, desc in STRATEGIES.items():
             marker = " <-" if s == current else ""
             print(f"  {s:<15}  {desc}{marker}")
-        print("\n  Set with: thot honcho strategy [per-session|per-directory|per-repo|global]\n")
+        print("\n  Set with: naabiga honcho strategy [per-session|per-directory|per-repo|global]\n")
         return
 
     if strat_arg not in STRATEGIES:
@@ -1365,7 +1365,7 @@ def cmd_strategy(args) -> None:
         return
 
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
     cfg.setdefault("hosts", {}).setdefault(host, {})["sessionStrategy"] = strat_arg
     _write_config(cfg)
     print(f"  {label}Session strategy -> {strat_arg}  ({STRATEGIES[strat_arg]})\n")
@@ -1375,15 +1375,15 @@ def cmd_tokens(args) -> None:
     """Show or set token budget settings."""
     cfg = _read_config()
     hosts = cfg.get("hosts", {})
-    thot = hosts.get(_host_key(), {})
+    naabiga = hosts.get(_host_key(), {})
 
     context = getattr(args, "context", None)
     dialectic = getattr(args, "dialectic", None)
 
     if context is None and dialectic is None:
-        ctx_tokens = thot.get("contextTokens") or cfg.get("contextTokens") or "(Honcho default)"
-        d_chars = thot.get("dialecticMaxChars") or cfg.get("dialecticMaxChars") or 600
-        d_level = thot.get("dialecticReasoningLevel") or cfg.get("dialecticReasoningLevel") or "low"
+        ctx_tokens = naabiga.get("contextTokens") or cfg.get("contextTokens") or "(Honcho default)"
+        d_chars = naabiga.get("dialecticMaxChars") or cfg.get("dialecticMaxChars") or 600
+        d_level = naabiga.get("dialecticReasoningLevel") or cfg.get("dialecticReasoningLevel") or "low"
         print("\nHoncho budgets\n" + "─" * 40)
         print()
         print(f"  Context     {ctx_tokens} tokens")
@@ -1391,15 +1391,15 @@ def cmd_tokens(args) -> None:
         print("    the user and session, injected directly into the system prompt.")
         print()
         print(f"  Dialectic   {d_chars} chars, reasoning: {d_level}")
-        print("    AI-to-AI inference. Thot asks Honcho's AI peer a question")
+        print("    AI-to-AI inference. Naabiga asks Honcho's AI peer a question")
         print("    (e.g. \"what were we working on?\") and Honcho runs its own model")
         print("    to synthesize an answer. Used for first-turn session continuity.")
         print("    Level controls how much reasoning Honcho spends on the answer.")
-        print("\n  Set with: thot honcho tokens [--context N] [--dialectic N]\n")
+        print("\n  Set with: naabiga honcho tokens [--context N] [--dialectic N]\n")
         return
 
     host = _host_key()
-    label = f"[{host}] " if host != "thot" else ""
+    label = f"[{host}] " if host != "naabiga" else ""
     changed = False
     if context is not None:
         cfg.setdefault("hosts", {}).setdefault(host, {})["contextTokens"] = context
@@ -1419,7 +1419,7 @@ def cmd_identity(args) -> None:
     """Seed AI peer identity or show both peer representations."""
     cfg = _read_config()
     if not _resolve_api_key(cfg):
-        print("  No API key configured. Run 'thot honcho setup' first.\n")
+        print("  No API key configured. Run 'naabiga honcho setup' first.\n")
         return
 
     file_path = getattr(args, "file", None)
@@ -1456,7 +1456,7 @@ def cmd_identity(args) -> None:
             print(ai_rep["card"])
         else:
             print("  No representation built yet.")
-            print("  Run 'thot honcho identity <file>' to seed one.")
+            print("  Run 'naabiga honcho identity <file>' to seed one.")
         print()
         return
 
@@ -1465,8 +1465,8 @@ def cmd_identity(args) -> None:
         print(f"  User peer: {hcfg.peer_name or 'not set'}")
         print(f"  AI peer:   {hcfg.ai_peer}")
         print()
-        print("    thot honcho identity --show        — show both peer representations")
-        print("    thot honcho identity <file>        — seed AI peer from SOUL.md or any .md/.txt\n")
+        print("    naabiga honcho identity --show        — show both peer representations")
+        print("    naabiga honcho identity <file>        — seed AI peer from SOUL.md or any .md/.txt\n")
         return
 
     from pathlib import Path
@@ -1490,7 +1490,7 @@ def cmd_identity(args) -> None:
 
 
 def cmd_migrate(args) -> None:
-    """Step-by-step migration guide: OpenClaw native memory → Thot + Honcho."""
+    """Step-by-step migration guide: OpenClaw native memory → Naabiga + Honcho."""
     from pathlib import Path
 
     # ── Detect OpenClaw native memory files ──────────────────────────────────
@@ -1518,7 +1518,7 @@ def cmd_migrate(args) -> None:
     cfg = _read_config()
     has_key = bool(_resolve_api_key(cfg))
 
-    print("\nHoncho migration: OpenClaw native memory → Thot\n" + "─" * 50)
+    print("\nHoncho migration: OpenClaw native memory → Naabiga\n" + "─" * 50)
     print()
     print("  OpenClaw's native memory stores context in local markdown files")
     print("  (USER.md, MEMORY.md, SOUL.md, ...) and injects them via QMD search.")
@@ -1535,21 +1535,21 @@ def cmd_migrate(args) -> None:
         print(f"  Honcho API key already configured: {masked}")
         print("  Skip to Step 2.")
     else:
-        print("  Honcho is a cloud memory service that gives Thot persistent memory")
+        print("  Honcho is a cloud memory service that gives Naabiga persistent memory")
         print("  across sessions. You need an API key to use it.")
         print()
         print("  1. Get your API key at https://app.honcho.dev")
-        print("  2. Run:  thot honcho setup")
+        print("  2. Run:  naabiga honcho setup")
         print("     Paste the key when prompted.")
         print()
-        answer = _prompt("  Run 'thot honcho setup' now?", default="y")
+        answer = _prompt("  Run 'naabiga honcho setup' now?", default="y")
         if answer.lower() in {"y", "yes"}:
             cmd_setup(args)
             cfg = _read_config()
             has_key = bool(cfg.get("apiKey", ""))
         else:
             print()
-            print("  Run 'thot honcho setup' when ready, then re-run this walkthrough.")
+            print("  Run 'naabiga honcho setup' when ready, then re-run this walkthrough.")
 
     # ── Step 2: Detected files ────────────────────────────────────────────────
     print()
@@ -1567,7 +1567,7 @@ def cmd_migrate(args) -> None:
     else:
         print("  No OpenClaw native memory files found in cwd or ~/.openclaw/.")
         print("  If your files are elsewhere, copy them here before continuing,")
-        print("  or seed them manually:  thot honcho identity <path/to/file>")
+        print("  or seed them manually:  naabiga honcho identity <path/to/file>")
 
     # ── Step 3: Migrate user memory ───────────────────────────────────────────
     print()
@@ -1580,13 +1580,13 @@ def cmd_migrate(args) -> None:
     if user_files:
         print(f"  Found: {', '.join(f.name for f in user_files)}")
         print()
-        print("  These are picked up automatically the first time you run 'thot'")
+        print("  These are picked up automatically the first time you run 'naabiga'")
         print("  with Honcho configured and no prior session history.")
-        print("  (Thot calls migrate_memory_files() on first session init.)")
+        print("  (Naabiga calls migrate_memory_files() on first session init.)")
         print()
         print("  If you want to migrate them now without starting a session:")
         for f in user_files:
-            print("    thot honcho migrate  — this step handles it interactively")
+            print("    naabiga honcho migrate  — this step handles it interactively")
         if has_key:
             answer = _prompt("  Upload user memory files to Honcho now?", default="y")
             if answer.lower() in {"y", "yes"}:
@@ -1617,7 +1617,7 @@ def cmd_migrate(args) -> None:
                 except Exception as e:
                     print(f"  Failed: {e}")
         else:
-            print("  Run 'thot honcho setup' first, then re-run this step.")
+            print("  Run 'naabiga honcho setup' first, then re-run this step.")
     else:
         print("  No user memory files detected. Nothing to migrate here.")
 
@@ -1629,7 +1629,7 @@ def cmd_migrate(args) -> None:
     print("  agent's character, capabilities, and behavioral rules. In OpenClaw")
     print("  these are injected via file search at prompt-build time.")
     print()
-    print("  In Thot, they are seeded once into Honcho's AI peer through the")
+    print("  In Naabiga, they are seeded once into Honcho's AI peer through the")
     print("  observation pipeline. Honcho builds a representation from them and")
     print("  from every subsequent assistant message (observe_me=True). Over time")
     print("  the representation reflects actual behavior, not just declaration.")
@@ -1663,12 +1663,12 @@ def cmd_migrate(args) -> None:
                 except Exception as e:
                     print(f"  Failed: {e}")
         else:
-            print("  Run 'thot honcho setup' first, then seed manually:")
+            print("  Run 'naabiga honcho setup' first, then seed manually:")
             for f in agent_files:
-                print(f"    thot honcho identity {f}")
+                print(f"    naabiga honcho identity {f}")
     else:
         print("  No agent identity files detected.")
-        print("  To seed manually:  thot honcho identity <path/to/SOUL.md>")
+        print("  To seed manually:  naabiga honcho identity <path/to/SOUL.md>")
 
     # ── Step 5: What changes ──────────────────────────────────────────────────
     print()
@@ -1676,17 +1676,17 @@ def cmd_migrate(args) -> None:
     print()
     print("  Storage")
     print("    OpenClaw: markdown files on disk, searched via QMD at prompt-build time.")
-    print("    Thot:   cloud-backed Honcho peers. Files can stay on disk as source")
+    print("    Naabiga:   cloud-backed Honcho peers. Files can stay on disk as source")
     print("              of truth; Honcho holds the live representation.")
     print()
     print("  Context injection")
     print("    OpenClaw: file excerpts injected synchronously before each LLM call.")
-    print("    Thot:   Honcho context fetched async at turn end, injected next turn.")
+    print("    Naabiga:   Honcho context fetched async at turn end, injected next turn.")
     print("              First turn has no Honcho context; subsequent turns are loaded.")
     print()
     print("  Memory growth")
     print("    OpenClaw: you edit files manually to update memory.")
-    print("    Thot:   Honcho observes every message and updates representations")
+    print("    Naabiga:   Honcho observes every message and updates representations")
     print("              automatically. Files become the seed, not the live store.")
     print()
     print("  Honcho tools (available to the agent during conversation)")
@@ -1698,23 +1698,23 @@ def cmd_migrate(args) -> None:
     print()
     print("  Session naming")
     print("    OpenClaw: no persistent session concept — files are global.")
-    print("    Thot:   per-session by default — each run gets its own session")
-    print("              Map a custom name:  thot honcho map <session-name>")
+    print("    Naabiga:   per-session by default — each run gets its own session")
+    print("              Map a custom name:  naabiga honcho map <session-name>")
 
     # ── Step 6: Next steps ────────────────────────────────────────────────────
     print()
     print("Step 6  Next steps")
     print()
     if not has_key:
-        print("  1. thot honcho setup              — configure API key (required)")
-        print("  2. thot honcho migrate            — re-run this walkthrough")
+        print("  1. naabiga honcho setup              — configure API key (required)")
+        print("  2. naabiga honcho migrate            — re-run this walkthrough")
     else:
-        print("  1. thot honcho status             — verify Honcho connection")
-        print("  2. thot                           — start a session")
+        print("  1. naabiga honcho status             — verify Honcho connection")
+        print("  2. naabiga                           — start a session")
         print("     (user memory files auto-uploaded on first turn if not done above)")
-        print("  3. thot honcho identity --show    — verify AI peer representation")
-        print("  4. thot honcho tokens             — tune context and dialectic budgets")
-        print("  5. thot honcho mode               — view or change memory mode")
+        print("  3. naabiga honcho identity --show    — verify AI peer representation")
+        print("  4. naabiga honcho tokens             — tune context and dialectic budgets")
+        print("  5. naabiga honcho mode               — view or change memory mode")
     print()
 
 
@@ -1727,8 +1727,8 @@ def honcho_command(args) -> None:
     if sub == "setup":
         # Redirect to memory setup — honcho setup goes through the unified path
         print("\n  Honcho is configured via the memory provider system.")
-        print("  Running 'thot memory setup'...\n")
-        from thot_cli.memory_setup import cmd_setup_provider
+        print("  Running 'naabiga memory setup'...\n")
+        from naabiga_cli.memory_setup import cmd_setup_provider
         cmd_setup_provider("honcho")
         return
     elif sub is None:
@@ -1765,10 +1765,10 @@ def honcho_command(args) -> None:
 
 
 def register_cli(subparser) -> None:
-    """Build the ``thot honcho`` argparse subcommand tree.
+    """Build the ``naabiga honcho`` argparse subcommand tree.
 
     Called by the plugin CLI registration system during argparse setup.
-    The *subparser* is the parser for ``thot honcho``.
+    The *subparser* is the parser for ``naabiga honcho``.
     """
 
     subparser.add_argument(
@@ -1779,7 +1779,7 @@ def register_cli(subparser) -> None:
 
     subs.add_parser(
         "setup",
-        help="Initial Honcho setup (redirects to thot memory setup)",
+        help="Initial Honcho setup (redirects to naabiga memory setup)",
     )
 
     status_parser = subs.add_parser(
@@ -1855,7 +1855,7 @@ def register_cli(subparser) -> None:
 
     subs.add_parser(
         "migrate",
-        help="Step-by-step migration guide from openclaw-honcho to Thot Honcho",
+        help="Step-by-step migration guide from openclaw-honcho to Naabiga Honcho",
     )
     subs.add_parser("enable", help="Enable Honcho for the active profile")
     subs.add_parser("disable", help="Disable Honcho for the active profile")

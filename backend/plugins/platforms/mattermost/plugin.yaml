@@ -3,10 +3,10 @@ label: Mattermost
 kind: platform
 version: 1.0.0
 description: >
-  Mattermost gateway adapter for Thot Agent.
+  Mattermost gateway adapter for Naabiga Agent.
   Connects to a self-hosted or cloud Mattermost instance via the v4 REST
   API + WebSocket event stream and relays messages between Mattermost
-  channels/DMs and the Thot agent. Supports thread-mode replies, native
+  channels/DMs and the Naabiga agent. Supports thread-mode replies, native
   file uploads, channel-scoped allowlists, and home-channel cron delivery.
 author: NousResearch
 requires_env:

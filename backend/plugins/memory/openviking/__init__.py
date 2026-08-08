@@ -13,7 +13,7 @@ or a linked OpenViking CLI config:
   OPENVIKING_API_KEY   — API key (required for authenticated servers)
   OPENVIKING_ACCOUNT   — Tenant account for local/trusted mode (default: default)
   OPENVIKING_USER      — Tenant user for local/trusted mode (default: default)
-  OPENVIKING_AGENT     — Thot peer ID in OpenViking (default: thot)
+  OPENVIKING_AGENT     — Naabiga peer ID in OpenViking (default: naabiga)
 
 Capabilities:
   - Automatic memory extraction on session commit (6 categories)
@@ -55,8 +55,8 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_ENDPOINT = "http://127.0.0.1:1933"
 _OPENVIKING_SERVICE_ENDPOINT = "https://api.vikingdb.cn-beijing.volces.com/openviking"
-_DEFAULT_AGENT = "thot"
-_AGENT_PROMPT_LABEL = "Thot peer ID in OpenViking"
+_DEFAULT_AGENT = "naabiga"
+_AGENT_PROMPT_LABEL = "Naabiga peer ID in OpenViking"
 _OVCLI_CONFIG_ENV = "OPENVIKING_CLI_CONFIG_FILE"
 _OVCLI_DEFAULT_RELATIVE_PATH = ".openviking/ovcli.conf"
 _OVCLI_SAVED_PREFIX = "ovcli.conf."
@@ -71,7 +71,7 @@ _TIMEOUT = 30.0
 _SESSION_DRAIN_TIMEOUT = 10.0
 _DEFERRED_COMMIT_TIMEOUT = (_TIMEOUT * 2) + 5.0
 _REMOTE_RESOURCE_PREFIXES = ("http://", "https://", "git@", "ssh://", "git://")
-_SYNC_TRACE_ENV = "THOT_OPENVIKING_SYNC_TRACE"
+_SYNC_TRACE_ENV = "NAABIGA_OPENVIKING_SYNC_TRACE"
 _DEFAULT_RECALL_LIMIT = 6
 _DEFAULT_RECALL_SCORE_THRESHOLD = 0.15
 _DEFAULT_RECALL_MAX_INJECTED_CHARS = 4000
@@ -162,7 +162,7 @@ def _format_openviking_exception(error: Exception) -> str:
 
 
 def _derive_openviking_user_text(content: Any) -> str:
-    """Strip Thot slash-skill scaffolding before sending content to OpenViking.
+    """Strip Naabiga slash-skill scaffolding before sending content to OpenViking.
 
     Defense-in-depth: MemoryManager already strips skill scaffolding for the
     whole provider fan-out (see ``MemoryManager._strip_skill_scaffolding``), so
@@ -852,9 +852,9 @@ def _is_local_openviking_url(value: str) -> bool:
     return scheme == "http" and (parsed.hostname or "").lower() in _LOCAL_OPENVIKING_HOSTS
 
 
-def _load_thot_openviking_config() -> dict:
+def _load_naabiga_openviking_config() -> dict:
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
 
         config = load_config()
         memory_config = config.get("memory", {}) if isinstance(config, dict) else {}
@@ -1148,10 +1148,10 @@ def _local_openviking_bind(endpoint: str) -> tuple[str, int]:
 
 def _openviking_server_log_path() -> Path:
     try:
-        from thot_constants import get_thot_home
-        home = get_thot_home()
+        from naabiga_constants import get_naabiga_home
+        home = get_naabiga_home()
     except Exception:
-        home = Path(os.environ.get("THOT_HOME", "")).expanduser() if os.environ.get("THOT_HOME") else Path.home() / ".thot"
+        home = Path(os.environ.get("NAABIGA_HOME", "")).expanduser() if os.environ.get("NAABIGA_HOME") else Path.home() / ".naabiga"
     return home / _OPENVIKING_SERVER_LOG_RELATIVE_PATH
 
 
@@ -1262,7 +1262,7 @@ def _runtime_openviking_timeout_message(endpoint: str) -> str:
         f"Local OpenViking server at {endpoint} is not reachable. "
         "Tried to start openviking-server, but it did not become reachable "
         f"within {_LOCAL_OPENVIKING_AUTOSTART_TIMEOUT:.0f} seconds. "
-        "OpenViking memory disabled for this Thot run."
+        "OpenViking memory disabled for this Naabiga run."
     )
 
 
@@ -1576,7 +1576,7 @@ def _link_ovcli_profile(
         os.environ.pop(key, None)
 
 
-def _save_thot_only_config(
+def _save_naabiga_only_config(
     *,
     config: dict,
     provider_config: dict,
@@ -1616,7 +1616,7 @@ def _print_openviking_ready(message: str, path: Optional[Path] = None) -> None:
     print(f"  {message}")
     if path is not None:
         print(f"  Config file: {path}")
-    print("  Start a new Thot session to activate.\n")
+    print("  Start a new Naabiga session to activate.\n")
 
 
 def _run_existing_profile_setup(
@@ -1734,7 +1734,7 @@ def _run_create_profile_setup(
     save_choice = select(
         "  Save OpenViking config",
         [
-            ("Keep in Thot only", "write values only to Thot .env"),
+            ("Keep in Naabiga only", "write values only to Naabiga .env"),
             ("Mirror to OpenViking store", "write ~/.openviking/ovcli.conf.<name> and link it"),
         ],
         default=1,
@@ -1761,13 +1761,13 @@ def _run_create_profile_setup(
         _print_openviking_ready("Created and linked OpenViking profile.", ovcli_path)
         return True
 
-    _save_thot_only_config(
+    _save_naabiga_only_config(
         config=config,
         provider_config=provider_config,
         env_path=env_path,
         values=values,
     )
-    _print_openviking_ready("Connection saved to Thot .env.")
+    _print_openviking_ready("Connection saved to Naabiga .env.")
     return True
 
 
@@ -1804,7 +1804,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         # MemoryManager's background sync executor while on_session_end /
         # on_session_switch run on the caller's thread, so the snapshot+reset
         # of the turn counter and the session-id rotation must be atomic
-        # against a concurrent increment. See thot-agent#28296 review.
+        # against a concurrent increment. See naabiga-agent#28296 review.
         self._session_state_lock = threading.Lock()
         # Commit only after session writes drain. The set is keyed by the sid
         # the writer is POSTing under (snapshotted at spawn), so on_session_end
@@ -1833,7 +1833,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         """Check if OpenViking endpoint is configured. No network calls."""
         if os.environ.get("OPENVIKING_ENDPOINT"):
             return True
-        provider_config = _load_thot_openviking_config()
+        provider_config = _load_naabiga_openviking_config()
         if not provider_config.get("use_ovcli_config"):
             return False
         try:
@@ -1870,10 +1870,10 @@ class OpenVikingMemoryProvider(MemoryProvider):
             {
                 "key": "agent",
                 "description": (
-                    "Thot peer ID in OpenViking, sent as the actor peer and "
+                    "Naabiga peer ID in OpenViking, sent as the actor peer and "
                     "used for peer-scoped memories"
                 ),
-                "default": "thot",
+                "default": "naabiga",
                 "env_var": "OPENVIKING_AGENT",
             },
             {
@@ -1960,13 +1960,13 @@ class OpenVikingMemoryProvider(MemoryProvider):
                 display[key] = "(set)"
         return display
 
-    def post_setup(self, thot_home: str, config: dict) -> None:
+    def post_setup(self, naabiga_home: str, config: dict) -> None:
         """Custom setup that can reuse OpenViking's shared CLI config."""
-        from thot_cli.config import save_config
-        from thot_cli.memory_setup import _CANCELLED, _curses_select, _print_cancelled_setup, _prompt
+        from naabiga_cli.config import save_config
+        from naabiga_cli.memory_setup import _CANCELLED, _curses_select, _print_cancelled_setup, _prompt
 
-        thot_home_path = Path(thot_home)
-        env_path = thot_home_path / ".env"
+        naabiga_home_path = Path(naabiga_home)
+        env_path = naabiga_home_path / ".env"
         if not isinstance(config.get("memory"), dict):
             config["memory"] = {}
         provider_config = config["memory"].get("openviking", {})
@@ -2072,7 +2072,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
             if not client.health():
                 _emit_runtime_warning(
                     f"OpenViking server at {endpoint} is still not reachable after auto-start; "
-                    "OpenViking memory disabled for this Thot run.",
+                    "OpenViking memory disabled for this Naabiga run.",
                     warning_callback,
                 )
                 return
@@ -2082,7 +2082,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         except Exception as e:
             _emit_runtime_warning(
                 f"OpenViking server at {endpoint} could not be attached after auto-start: {e}. "
-                "OpenViking memory disabled for this Thot run.",
+                "OpenViking memory disabled for this Naabiga run.",
                 warning_callback,
             )
             return
@@ -2103,7 +2103,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         if not _is_local_openviking_url(endpoint):
             _emit_runtime_warning(
                 f"Remote OpenViking server at {endpoint} is not reachable; "
-                "OpenViking memory disabled for this Thot run. "
+                "OpenViking memory disabled for this Naabiga run. "
                 "Check the configured endpoint and network connectivity.",
                 warning_callback,
             )
@@ -2114,7 +2114,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         if not started:
             _emit_runtime_warning(
                 f"Local OpenViking server at {endpoint} is not reachable. {start_message} "
-                "OpenViking memory disabled for this Thot run.",
+                "OpenViking memory disabled for this Naabiga run.",
                 warning_callback,
             )
             self._client = None
@@ -2131,7 +2131,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         )
 
     def initialize(self, session_id: str, **kwargs) -> None:
-        settings = _resolve_connection_settings(_load_thot_openviking_config())
+        settings = _resolve_connection_settings(_load_naabiga_openviking_config())
         self._endpoint = settings["endpoint"]
         self._api_key = settings["api_key"]
         self._account = settings["account"]
@@ -2163,7 +2163,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
                 )
             elif health_state != "healthy":
                 _emit_runtime_warning(
-                    f"{health_message} OpenViking memory disabled for this Thot run.",
+                    f"{health_message} OpenViking memory disabled for this Naabiga run.",
                     warning_callback,
                 )
                 self._client = None
@@ -2814,7 +2814,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         user_content: str,
         assistant_content: str,
     ) -> List[Dict[str, Any]]:
-        """Slice the completed turn out of Thot' full canonical transcript."""
+        """Slice the completed turn out of Naabiga' full canonical transcript."""
         if not messages:
             return []
 
@@ -2933,7 +2933,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         *,
         assistant_peer_id: str = "",
     ) -> List[Dict[str, Any]]:
-        """Convert Thot canonical messages into OpenViking batch payloads."""
+        """Convert Naabiga canonical messages into OpenViking batch payloads."""
         assistant_peer_id = str(assistant_peer_id or "").strip()
         tool_calls_by_id: Dict[str, Dict[str, Any]] = {}
         completed_tool_ids: set[str] = set()
@@ -3193,7 +3193,7 @@ class OpenVikingMemoryProvider(MemoryProvider):
         ``initialize()`` cached, so subsequent ``sync_turn()`` writes land in
         the already-closed old session and ``on_session_end()`` tries to
         commit it a second time. The new session never accumulates messages,
-        and memory extraction never fires for it. See thot-agent#28296.
+        and memory extraction never fires for it. See naabiga-agent#28296.
 
         Flushes any in-flight sync under the old session_id, commits the old
         session if it has pending turns (same extraction semantics as

@@ -1,14 +1,14 @@
 # Photon sidecar
 
-Small Node helper that bridges Thot Agent to Photon's Spectrum SDK
-(`spectrum-ts`).  Thot is Python; Photon has no public HTTP
+Small Node helper that bridges Naabiga Agent to Photon's Spectrum SDK
+(`spectrum-ts`).  Naabiga is Python; Photon has no public HTTP
 send-message endpoint today; replies therefore go through this sidecar.
 
 The sidecar:
 
 - runs `Spectrum({ projectId, projectSecret, providers: [imessage.config()] })`
 - exposes a loopback-only HTTP control channel for the Python adapter
-  to push send/typing requests (auth via `X-Thot-Sidecar-Token`)
+  to push send/typing requests (auth via `X-Naabiga-Sidecar-Token`)
 - drains the inbound message stream so `spectrum-ts` keeps its
   reconnect/heartbeat machinery alive (real inbound delivery is via
   Photon's signed webhook hitting our Python aiohttp server)
@@ -20,7 +20,7 @@ cd plugins/platforms/photon/sidecar
 npm install
 ```
 
-The Thot plugin's `thot photon setup` command runs `npm install`
+The Naabiga plugin's `naabiga photon setup` command runs `npm install`
 here automatically.
 
 ## Run standalone

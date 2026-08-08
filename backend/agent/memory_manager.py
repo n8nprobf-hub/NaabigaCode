@@ -404,9 +404,9 @@ class MemoryManager:
         # (#40466). Reject it here, at the door, so it never enters the routing
         # table at all — matching the built-ins-always-win invariant used by
         # the TTS/browser/search provider registries.
-        from toolsets import _THOT_CORE_TOOLS
+        from toolsets import _NAABIGA_CORE_TOOLS
 
-        _core_tool_names = set(_THOT_CORE_TOOLS)
+        _core_tool_names = set(_NAABIGA_CORE_TOOLS)
 
         # Index tool names → provider for routing
         for raw_schema in provider.get_tool_schemas():
@@ -478,7 +478,7 @@ class MemoryManager:
     def _strip_skill_scaffolding(text: str) -> Optional[str]:
         """Return memory-worthy user text, or None to skip the turn.
 
-        When a user invokes a /skill or /bundle, Thot expands the turn into
+        When a user invokes a /skill or /bundle, Naabiga expands the turn into
         a model-facing message that embeds the entire skill body. Feeding that
         verbatim to memory providers pollutes their stores/embeddings with
         prompt scaffolding instead of what the user actually asked. We recover
@@ -698,9 +698,9 @@ class MemoryManager:
         :meth:`add_provider`, so the manager must not advertise a schema it
         will never route. Built-ins always win (#40466).
         """
-        from toolsets import _THOT_CORE_TOOLS
+        from toolsets import _NAABIGA_CORE_TOOLS
 
-        _core_tool_names = set(_THOT_CORE_TOOLS)
+        _core_tool_names = set(_NAABIGA_CORE_TOOLS)
         schemas = []
         seen = set()
         for provider in self._providers:
@@ -1069,13 +1069,13 @@ class MemoryManager:
     def initialize_all(self, session_id: str, **kwargs) -> None:
         """Initialize all providers.
 
-        Automatically injects ``thot_home`` into *kwargs* so that every
+        Automatically injects ``naabiga_home`` into *kwargs* so that every
         provider can resolve profile-scoped storage paths without importing
-        ``get_thot_home()`` themselves.
+        ``get_naabiga_home()`` themselves.
         """
-        if "thot_home" not in kwargs:
-            from thot_constants import get_thot_home
-            kwargs["thot_home"] = str(get_thot_home())
+        if "naabiga_home" not in kwargs:
+            from naabiga_constants import get_naabiga_home
+            kwargs["naabiga_home"] = str(get_naabiga_home())
         for provider in self._providers:
             try:
                 provider.initialize(session_id=session_id, **kwargs)

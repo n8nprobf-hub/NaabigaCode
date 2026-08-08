@@ -10,13 +10,13 @@ Cloud memory API with hybrid search (Vector + BM25 + Reranking) and 7 memory typ
 ## Setup
 
 ```bash
-thot memory setup    # select "retaindb"
+naabiga memory setup    # select "retaindb"
 ```
 
 Or manually:
 ```bash
-thot config set memory.provider retaindb
-echo "RETAINDB_API_KEY=your-key" >> ~/.thot/.env
+naabiga config set memory.provider retaindb
+echo "RETAINDB_API_KEY=your-key" >> ~/.naabiga/.env
 ```
 
 ## Config

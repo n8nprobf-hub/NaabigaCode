@@ -1,1 +1,1 @@
-"""ACP (Agent Communication Protocol) adapter for thot-agent."""
+"""ACP (Agent Communication Protocol) adapter for naabiga-agent."""

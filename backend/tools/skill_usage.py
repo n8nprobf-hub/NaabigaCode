@@ -1,6 +1,6 @@
 """Skill usage telemetry + provenance tracking for the Curator feature.
 
-Tracks per-skill usage metadata in a sidecar JSON file (~/.thot/skills/.usage.json)
+Tracks per-skill usage metadata in a sidecar JSON file (~/.naabiga/skills/.usage.json)
 keyed by skill name. Counters are bumped by the existing skill tools (skill_view,
 skill_manage); the curator orchestrator reads the derived activity timestamp to
 decide lifecycle transitions.
@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 from agent.skill_utils import is_excluded_skill_path, is_external_skill_path
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def is_protected_builtin(skill_name: str) -> bool:
 
 
 def _skills_dir() -> Path:
-    return get_thot_home() / "skills"
+    return get_naabiga_home() / "skills"
 
 
 def _usage_file() -> Path:
@@ -181,7 +181,7 @@ def activity_count(record: Dict[str, Any]) -> int:
 def _read_bundled_manifest_names() -> Set[str]:
     """Return the set of skill names that were seeded from the bundled repo.
 
-    Reads ~/.thot/skills/.bundled_manifest (format: "name:hash" per line).
+    Reads ~/.naabiga/skills/.bundled_manifest (format: "name:hash" per line).
     Returns empty set if the file is missing or unreadable.
     """
     manifest = _skills_dir() / ".bundled_manifest"
@@ -204,7 +204,7 @@ def _read_bundled_manifest_names() -> Set[str]:
 def _read_hub_installed_names() -> Set[str]:
     """Return the set of skill names installed via the Skills Hub.
 
-    Reads ~/.thot/skills/.hub/lock.json (see tools/skills_hub.py :: HubLockFile).
+    Reads ~/.naabiga/skills/.hub/lock.json (see tools/skills_hub.py :: HubLockFile).
     """
     lock_path = _skills_dir() / ".hub" / "lock.json"
     if not lock_path.exists():
@@ -249,7 +249,7 @@ def _prune_builtins_enabled() -> bool:
     flag — built-ins only archive after a fresh inactivity window.
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
 
         cfg = load_config()
         cur = cfg.get("curator") if isinstance(cfg, dict) else None
@@ -267,8 +267,8 @@ def _suppressed_file() -> Path:
 def read_suppressed_names() -> Set[str]:
     """Built-in skills the curator pruned — the re-seeder must leave archived.
 
-    One skill name per line in ``~/.thot/skills/.curator_suppressed``. This is
-    what makes pruning a built-in durable: without it, ``thot update`` would
+    One skill name per line in ``~/.naabiga/skills/.curator_suppressed``. This is
+    what makes pruning a built-in durable: without it, ``naabiga update`` would
     re-copy the bundled skill on the next sync.
     """
     path = _suppressed_file()
@@ -349,7 +349,7 @@ def list_agent_created_skill_names() -> List[str]:
     names: List[str] = []
     # Top-level SKILL.md files (flat layout) AND nested category/skill/SKILL.md
     for skill_md in base.rglob("SKILL.md"):
-        # Skip Thot metadata, VCS, virtualenv/dependency, and cache dirs
+        # Skip Naabiga metadata, VCS, virtualenv/dependency, and cache dirs
         if is_excluded_skill_path(skill_md):
             continue
         # External skill dirs can be mounted below the local skills tree.
@@ -383,11 +383,11 @@ def list_agent_created_skill_names() -> List[str]:
 
 
 def list_archived_skill_names() -> List[str]:
-    """Enumerate skills in ``~/.thot/skills/.archive/``.
+    """Enumerate skills in ``~/.naabiga/skills/.archive/``.
 
     Archive layout is flat (``.archive/<skill>/``) as set by ``archive_skill``,
-    so the directory name is the skill name. Used by ``thot curator
-    list-archived`` to help users pass a name to ``thot curator restore``.
+    so the directory name is the skill name. Used by ``naabiga curator
+    list-archived`` to help users pass a name to ``naabiga curator restore``.
     """
     archive_root = _archive_dir()
     if not archive_root.exists():
@@ -694,7 +694,7 @@ def forget(skill_name: str) -> None:
 # ---------------------------------------------------------------------------
 
 def archive_skill(skill_name: str) -> Tuple[bool, str]:
-    """Move a curator-eligible skill directory to ~/.thot/skills/.archive/.
+    """Move a curator-eligible skill directory to ~/.naabiga/skills/.archive/.
 
     Returns (ok, message). Never archives hub-installed skills. Bundled
     built-ins are only archivable when ``curator.prune_builtins`` is enabled;
@@ -755,7 +755,7 @@ def archive_skill(skill_name: str) -> Tuple[bool, str]:
 
 
 def restore_skill(skill_name: str) -> Tuple[bool, str]:
-    """Move an archived skill back to ~/.thot/skills/. Restores to the flat
+    """Move an archived skill back to ~/.naabiga/skills/. Restores to the flat
     top-level layout; original category nesting is NOT reconstructed.
 
     Refuses to restore under a name that now collides with a hub-installed
@@ -832,8 +832,8 @@ def restore_skill(skill_name: str) -> Tuple[bool, str]:
 def _find_skill_dir(skill_name: str) -> Optional[Path]:
     """Locate the directory for a skill by its frontmatter `name:` field.
 
-    Handles both flat (~/.thot/skills/<skill>/SKILL.md) and category-nested
-    (~/.thot/skills/<category>/<skill>/SKILL.md) layouts.
+    Handles both flat (~/.naabiga/skills/<skill>/SKILL.md) and category-nested
+    (~/.naabiga/skills/<category>/<skill>/SKILL.md) layouts.
     """
     base = _skills_dir()
     if not base.exists():

@@ -3,18 +3,18 @@ label: LINE
 kind: platform
 version: 1.0.0
 description: >
-  LINE Messaging API gateway adapter for Thot Agent.
+  LINE Messaging API gateway adapter for Naabiga Agent.
   Runs an aiohttp webhook server that receives LINE webhook events
   (with HMAC-SHA256 signature verification) and relays messages between
-  LINE chats (1:1, groups, rooms) and the Thot agent. Outbound replies
+  LINE chats (1:1, groups, rooms) and the Naabiga agent. Outbound replies
   prefer the free reply token and fall back to the metered Push API
   when the token has expired or is absent. Slow LLM responses surface a
   Template Buttons postback bubble so the user can fetch the answer with
   a fresh reply token (free) once it's ready.
-author: Thot Agent contributors
+author: Naabiga Agent contributors
 # ``requires_env`` and ``optional_env`` entries are surfaced in the
-# ``thot config`` UI via the platform-plugin env var injector in
-# ``thot_cli/config.py``.
+# ``naabiga config`` UI via the platform-plugin env var injector in
+# ``naabiga_cli/config.py``.
 requires_env:
   - name: LINE_CHANNEL_ACCESS_TOKEN
     description: "LINE channel long-lived access token (LINE Developers Console > Messaging API > Channel access token)"

@@ -1,6 +1,6 @@
 """Local JSON registry of approved remote meet nodes.
 
-Lives at ``$THOT_HOME/workspace/meetings/nodes.json``. The gateway
+Lives at ``$NAABIGA_HOME/workspace/meetings/nodes.json``. The gateway
 consults it to resolve a ``chrome_node`` name to a ``(url, token)`` pair
 before opening a WebSocket to the remote bot host.
 
@@ -24,11 +24,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from thot_constants import get_thot_home
+from naabiga_constants import get_naabiga_home
 
 
 def _default_path() -> Path:
-    return Path(get_thot_home()) / "workspace" / "meetings" / "nodes.json"
+    return Path(get_naabiga_home()) / "workspace" / "meetings" / "nodes.json"
 
 
 class NodeRegistry:

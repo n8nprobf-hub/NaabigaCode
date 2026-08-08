@@ -56,9 +56,9 @@ def check_sms_requirements() -> bool:
 
 class SmsAdapter(BasePlatformAdapter):
     """
-    Twilio SMS <-> Thot gateway adapter.
+    Twilio SMS <-> Naabiga gateway adapter.
 
-    Each inbound phone number gets its own Thot session (multi-tenant).
+    Each inbound phone number gets its own Naabiga session (multi-tenant).
     Replies are always sent from the configured TWILIO_PHONE_NUMBER.
     """
 
@@ -403,7 +403,7 @@ class SmsAdapter(BasePlatformAdapter):
 # this bundled plugin. register() exposes the platform via the registry,
 # replacing the Platform.SMS elif in gateway/run.py, the
 # _PLATFORM_CONNECTED_CHECKERS entry in gateway/config.py, the _PLATFORMS["sms"]
-# static dict in thot_cli/gateway.py, and the _send_sms dispatch in
+# static dict in naabiga_cli/gateway.py, and the _send_sms dispatch in
 # tools/send_message_tool.py. TWILIO_* env→PlatformConfig seeding stays in core.
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -480,7 +480,7 @@ async def _standalone_send(
 def _is_connected(config) -> bool:
     """SMS is connected when Twilio credentials are present. Mirrors the legacy
     _PLATFORM_CONNECTED_CHECKERS[Platform.SMS] = bool(TWILIO_ACCOUNT_SID)."""
-    import thot_cli.gateway as gateway_mod
+    import naabiga_cli.gateway as gateway_mod
     return bool((gateway_mod.get_env_value("TWILIO_ACCOUNT_SID") or "").strip())
 
 
@@ -490,7 +490,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Thot plugin system."""
+    """Plugin entry point — called by the Naabiga plugin system."""
     ctx.register_platform(
         name="sms",
         label="SMS (Twilio)",

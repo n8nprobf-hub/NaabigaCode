@@ -4,7 +4,7 @@ Provides the agent with the ability to interact with Discord servers
 when running on the Discord gateway. Uses Discord REST API directly
 with the bot token — no dependency on the gateway adapter's client.
 
-Only included in the thot-discord toolset, so it has zero cost
+Only included in the naabiga-discord toolset, so it has zero cost
 for users on other platforms.
 
 The schema exposed to the model is filtered by two gates:
@@ -100,7 +100,7 @@ def _discord_request(
         headers={
             "Authorization": f"Bot {token}",
             "Content-Type": "application/json",
-            "User-Agent": "Thot-Agent (https://github.com/NousResearch/hermes-agent)",
+            "User-Agent": "Naabiga-Agent (https://github.com/NousResearch/hermes-agent)",
         },
     )
 
@@ -174,9 +174,9 @@ _capability_bg_lock = threading.Lock()
 def _capability_disk_cache_path() -> "Path":
     from pathlib import Path
 
-    from thot_constants import get_thot_home
+    from naabiga_constants import get_naabiga_home
 
-    return get_thot_home() / "cache" / "discord_capabilities.json"
+    return get_naabiga_home() / "cache" / "discord_capabilities.json"
 
 
 def _token_cache_key(token: str) -> str:
@@ -711,7 +711,7 @@ def _load_allowed_actions_config() -> Optional[List[str]]:
     Unknown action names are dropped with a log warning.
     """
     try:
-        from thot_cli.config import load_config
+        from naabiga_cli.config import load_config
         cfg = load_config()
     except Exception as exc:
         logger.debug("discord: could not load config (%s); allowing all actions.", exc)
