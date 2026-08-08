@@ -9,10 +9,10 @@
 $ErrorActionPreference = "Stop"
 
 $Version = $env:NAABIGA_VERSION
-if (-not $Version) { $Version = "v0.1.0" }
+if (-not $Version) { $Version = "v0.2.0" }
 $NpmPackage = "naabiga-cli"
 $GitHubRepo = "n8nprobf-hub/NaabigaCode"
-$TarballUrl = "https://github.com/$GitHubRepo/releases/download/$Version/naabiga-cli-0.1.0.tgz"
+$TarballUrl = "https://github.com/$GitHubRepo/releases/download/$Version/naabiga-cli-0.2.0.tgz"
 
 function Log  { Write-Host "[naabiga] $args" -ForegroundColor Cyan }
 function Warn { Write-Host "[naabiga] $args" -ForegroundColor Yellow }

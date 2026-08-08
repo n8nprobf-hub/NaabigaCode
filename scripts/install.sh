@@ -10,10 +10,10 @@
 # ============================================================
 set -euo pipefail
 
-VERSION="${NAABIGA_VERSION:-v0.1.0}"
+VERSION="${NAABIGA_VERSION:-v0.2.0}"
 NPM_PACKAGE="naabiga-cli"
 GITHUB_REPO="n8nprobf-hub/NaabigaCode"
-TARBALL_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/naabiga-cli-0.1.0.tgz"
+TARBALL_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/naabiga-cli-0.2.0.tgz"
 
 log()  { printf '\033[1;34m[naabiga]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[naabiga]\033[0m %s\n' "$*"; }

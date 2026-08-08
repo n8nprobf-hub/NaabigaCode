@@ -21,7 +21,7 @@ const VENV_PY = join(ROOT, 'backend', '.venv', 'bin', 'python')
 
 // --version rapide (zéro chargement)
 if (process.argv.slice(2).includes('--version') || process.argv.slice(2).includes('-v')) {
-  console.log('naabiga-cli 0.1.0 (ICONEDOR SARL)')
+  console.log('naabiga-cli 0.2.0 (ICONEDOR SARL)')
   process.exit(0)
 }
 
