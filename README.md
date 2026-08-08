@@ -108,4 +108,8 @@ HTTP/SSE :
 
 ---
 
+## Licence
+
+NaabigaCode est distribué sous licence **MIT** — voir [LICENSE](LICENSE).
+
 © **ICONEDOR SARL** — Ouagadougou, Burkina Faso. Construit pour les équipes tech d'Afrique de l'Ouest.
