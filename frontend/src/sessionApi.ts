@@ -19,6 +19,8 @@ export interface SessionApi {
   abort(): Promise<void>
   streamEvents(onEvent: (ev: SessionEvent) => void, onClose: () => void): void
   close(): void
+  /** Interne : contrôleur d'abandon du stream SSE en cours. */
+  _streamController?: AbortController
 }
 
 export function connectSession(baseUrl: string, sessionId: string): SessionApi {
@@ -60,9 +62,14 @@ export function connectSession(baseUrl: string, sessionId: string): SessionApi {
     },
 
     streamEvents(onEvent, onClose) {
+      const controller = new AbortController()
+      api._streamController = controller
+
       void (async () => {
         try {
-          const res = await fetch(`${baseUrl}/session/${encodeURIComponent(sessionId)}/events`)
+          const res = await fetch(`${baseUrl}/session/${encodeURIComponent(sessionId)}/events`, {
+            signal: controller.signal,
+          })
           if (!res.ok || !res.body) {
             onClose()
             return
@@ -87,15 +94,22 @@ export function connectSession(baseUrl: string, sessionId: string): SessionApi {
               }
             }
           }
-        } catch {
-          // connection lost
+        } catch (err) {
+          // AbortError = fermeture volontaire via close() : silencieux.
+          if (!(err instanceof Error && err.name === 'AbortError')) {
+            // connection lost
+          }
         }
         onClose()
       })()
     },
 
     close() {
-      // fetch streams are closed by aborting reader; best-effort noop here
+      // Annule la lecture du stream en cours (AbortController + reader).
+      if (api._streamController) {
+        api._streamController.abort()
+        api._streamController = undefined
+      }
     },
   }
 

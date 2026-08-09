@@ -36,15 +36,27 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger("naabigacode.backend")
 
 # ── In-memory session store (MVP) ────────────────────────────────────
+SESSION_TTL_SECONDS = 3600  # 1h d'inactivité max avant purge
+
+
 class Session:
     def __init__(self, session_id: str) -> None:
         self.id = session_id
         self.created_at = time.time()
+        self.last_active = time.time()
         self.queue: Deque[Dict[str, Any]] = deque()
         self.abort_event = asyncio.Event()
         self.busy = False
 
+    def touch(self) -> None:
+        self.last_active = time.time()
+
+    @property
+    def expired(self) -> bool:
+        return (time.time() - self.last_active) > SESSION_TTL_SECONDS
+
     def emit(self, event: Dict[str, Any]) -> None:
+        self.touch()
         self.queue.append(event)
 
     async def stream_events(self) -> AsyncGenerator[str, None]:
@@ -73,8 +85,49 @@ class Session:
 
 sessions: Dict[str, Session] = {}
 
+
+def purge_expired_sessions() -> int:
+    """Supprime les sessions inactives depuis plus de SESSION_TTL_SECONDS.
+
+    Retourne le nombre de sessions purgées. Appelable depuis la boucle
+    d'arrière-plan comme depuis les tests.
+    """
+    expired = [sid for sid, s in sessions.items() if s.expired and not s.busy]
+    for sid in expired:
+        del sessions[sid]
+    if expired:
+        logger.info("Purged %d expired session(s)", len(expired))
+    return len(expired)
+
+
+async def _purge_loop() -> None:
+    """Boucle d'arrière-plan : purge toutes les 60s jusqu'à annulation."""
+    while True:
+        await asyncio.sleep(60)
+        try:
+            purge_expired_sessions()
+        except Exception:
+            logger.exception("Session purge failed")
+
+
 # ── FastAPI app ───────────────────────────────────────────────────────
-app = FastAPI(title="NaabigaCode Backend", version="0.1.0")
+app = FastAPI(title="NaabigaCode Backend", version="0.2.0")
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    app.state.purge_task = asyncio.create_task(_purge_loop())
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    task = getattr(app.state, "purge_task", None)
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 @app.get("/health")

@@ -23,17 +23,28 @@ const BACKEND_URL = process.env.NAABIGA_BACKEND_URL ?? 'http://127.0.0.1:8400'
 
 function resolveBackendCommand(): { cmd: string; args: string[] } | null {
   const root = join(__dirname, '..', '..')
-  const candidates = [
-    { cmd: join(root, 'backend', '.venv', 'bin', 'python'), args: [join(root, 'backend', 'main.py')] },
-    { cmd: 'python3', args: [join(root, 'backend', 'main.py')] },
+  const mainPy = join(root, 'backend', 'main.py')
+  // Chemins venv selon la plateforme : bin/ (Unix), Scripts/ (Windows).
+  const venvCandidates = [
+    join(root, 'backend', '.venv', 'bin', 'python'),
+    join(root, 'backend', '.venv', 'Scripts', 'python.exe'),
+    join(root, 'backend', 'venv', 'bin', 'python'),
+    join(root, 'backend', 'venv', 'Scripts', 'python.exe'),
   ]
-  for (const c of candidates) {
-    if (existsSync(c.cmd)) return c
-    // python3 may be on PATH even if not on disk at that path
-    if (c.cmd === 'python3') {
-      const probe = spawnSync(c.cmd, ['--version'], { stdio: 'ignore' })
-      if (probe.status === 0) return c
+  for (const venvPy of venvCandidates) {
+    if (existsSync(venvPy)) return { cmd: venvPy, args: [mainPy] }
+  }
+  // Fallback : python sur le PATH (noms selon la plateforme).
+  const pathCandidates = ['python3', 'python', 'py']
+  for (const py of pathCandidates) {
+    if (py === 'py') {
+      // `py` est un launcher Windows : il faut le flag -3 pour forcer Python 3.
+      const probe = spawnSync(py, ['-3', '--version'], { stdio: 'ignore' })
+      if (probe.status === 0) return { cmd: py, args: ['-3', mainPy] }
+      continue
     }
+    const probe = spawnSync(py, ['--version'], { stdio: 'ignore' })
+    if (probe.status === 0) return { cmd: py, args: [mainPy] }
   }
   return null
 }

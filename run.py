@@ -16,7 +16,11 @@ FRONTEND_DIR = ROOT / "frontend"
 
 
 def run_backend(port: int = 8400) -> None:
-    sys.path.insert(0, str(BACKEND_DIR))
+    # L'import "backend.main" nécessite ROOT (le parent du package backend/)
+    # dans sys.path — pas BACKEND_DIR. Sans cela, l'import casse si run.py
+    # est exécuté depuis un autre répertoire de travail.
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
     from backend.main import run_server
 
     run_server(host="127.0.0.1", port=port)

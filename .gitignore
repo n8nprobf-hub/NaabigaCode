@@ -20,6 +20,14 @@ dist/
 *.pem
 *.key
 
+# Médias / binaires audio (échantillons TTS, etc.)
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.m4a
+*.aac
+
 # OS / editors
 .DS_Store
 Thumbs.db
