@@ -143,3 +143,46 @@ def test_purge_expired_sessions(client):
     assert purged == 1
     assert sid_old not in module.sessions
     assert sid_fresh in module.sessions
+
+
+def test_slash_help_consumed_without_llm(client):
+    """Le dispatch /help est intercepté AVANT le tour LLM.
+
+    Le stub agent_bridge répondrait "re: /help" ; le fait que la réponse
+    contienne le menu de commandes prouve que le LLM n'a pas été appelé.
+    """
+    sid = client.post("/session/create").json()["session_id"]
+
+    r = client.post(f"/session/{sid}/message", json={"message": "/help"})
+    assert r.json() == {"accepted": True}
+
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    types = {e.get("type") for e in session.queue}
+    assert "user" in types
+    assert "done" in types
+
+    assistant = [e.get("text", "") for e in session.queue if e.get("type") == "assistant"]
+    assert any("Commandes disponibles" in t for t in assistant), assistant
+
+
+def test_slash_unknown_falls_back_to_llm(client):
+    """Une commande inconnue retombe sur le tour LLM (stub appelé)."""
+    sid = client.post("/session/create").json()["session_id"]
+
+    r = client.post(f"/session/{sid}/message", json={"message": "/xyz-commande"})
+    assert r.json() == {"accepted": True}
+
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    # Le stub répond "re: <texte>" — preuve que le LLM (stub) a tourné.
+    assistant = [e.get("text", "") for e in session.queue if e.get("type") == "assistant"]
+    assert any("re:" in t for t in assistant), assistant

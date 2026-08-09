@@ -1,0 +1,135 @@
+"""Tests du dispatcher de commandes slash TUI (backend/tui_slash.py).
+
+Vérifie le contrat de handle_slash :
+  - None       → le message part au moteur LLM (prompt normal)
+  - "consumed" → commande traitée localement, aucun tour LLM
+  - "rerun"    → /retry : rejouer le dernier message utilisateur
+
+Exécution : `cd backend && pytest -q`
+"""
+
+from __future__ import annotations
+
+import sys
+import time
+from pathlib import Path
+
+import pytest
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from tui_slash import handle_slash, _last_user_text  # noqa: E402
+
+
+class StubSession:
+    """Mini session compatible avec le contrat attendu par handle_slash."""
+
+    def __init__(self) -> None:
+        self.id = "test1234abcd"
+        self.created_at = time.time()
+        self.queue = []
+        self.busy = False
+
+    def emit(self, ev) -> None:
+        self.queue.append(ev)
+
+
+@pytest.fixture()
+def session():
+    s = StubSession()
+    s.queue.append({"type": "user", "text": "bonjour, que fais-tu ?"})
+    return s
+
+
+def run(cmd, session):
+    return session, handle_slash(session.id, session, cmd, session.emit)
+
+
+def test_plain_text_goes_to_llm(session):
+    _, action = run("bonjour comment ça va ?", session)
+    assert action is None
+
+
+def test_help_consumed_and_emits(session):
+    sess, action = run("/help", session)
+    assert action == "consumed"
+    assert any(e.get("type") == "assistant" for e in sess.queue)
+
+
+def test_status_consumed(session):
+    sess, action = run("/status", session)
+    assert action == "consumed"
+    assert "test1234abcd" in sess.queue[-1].get("text", "")
+
+
+def test_clear_emits_clear_event(session):
+    sess, action = run("/clear", session)
+    assert action == "consumed"
+    assert any(e.get("type") == "clear" for e in sess.queue)
+
+
+def test_history_contains_previous_user_message(session):
+    sess, action = run("/history", session)
+    assert action == "consumed"
+    assert any("bonjour" in e.get("text", "") for e in sess.queue)
+
+
+def test_retry_with_history_reruns(session):
+    _, action = run("/retry", session)
+    assert action == "rerun"
+
+
+def test_retry_without_history_consumed():
+    fresh = StubSession()
+    action = handle_slash(fresh.id, fresh, "/retry", fresh.emit)
+    assert action == "consumed"
+
+
+def test_sessions_consumed(session):
+    sess, action = run("/sessions", session)
+    assert action == "consumed"
+    assert "test1234abcd" in sess.queue[-1].get("text", "")
+
+
+def test_title_consumed(session):
+    sess, action = run("/title ma-session", session)
+    assert action == "consumed"
+    assert "ma-session" in sess.queue[-1].get("text", "")
+
+
+def test_title_without_arg_consumed(session):
+    _, action = run("/title", session)
+    assert action == "consumed"
+
+
+def test_known_but_not_available_in_tui(session):
+    """/skills est connu du registre mais non-TUI → consumé avec explication."""
+    sess, action = run("/skills", session)
+    assert action == "consumed"
+    assert any("pas encore disponible" in e.get("message", "") for e in sess.queue)
+
+
+def test_unknown_command_falls_back_to_llm(session):
+    """Commande inconnue → None (le LLM la traite) + info émise."""
+    sess, action = run("/xyz-inconnue", session)
+    assert action is None
+    assert any(e.get("type") == "info" for e in sess.queue)
+
+
+def test_new_consumed(session):
+    _, action = run("/new", session)
+    assert action == "consumed"
+
+
+def test_reset_alias_consumed(session):
+    _, action = run("/reset", session)
+    assert action == "consumed"
+
+
+def test_last_user_text_helper():
+    s = StubSession()
+    s.queue.append({"type": "user", "text": "dernier"})
+    s.queue.append({"type": "assistant", "text": "réponse"})
+    assert _last_user_text(s) == "dernier"

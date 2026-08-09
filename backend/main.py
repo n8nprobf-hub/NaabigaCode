@@ -192,6 +192,30 @@ async def session_events(session_id: str) -> StreamingResponse:
 # ── Agent loop adapter ───────────────────────────────────────────────
 async def _run_turn(session: Session, user_message: str) -> None:
     try:
+        # 1. Commandes slash : interception AVANT tout appel LLM.
+        #    handle_slash émet lui-même les événements et retourne :
+        #      None       → prompt normal pour le moteur
+        #      "consumed" → commande traitée, aucun tour LLM
+        #      "rerun"    → commande `/retry` : rejouer le dernier prompt
+        try:
+            from tui_slash import handle_slash
+
+            slash_action = handle_slash(session.id, session, user_message, session.emit)
+        except Exception as exc:
+            logger.warning("slash dispatch failed (%s) — fallback LLM", exc)
+            slash_action = None
+
+        if slash_action == "consumed":
+            return
+        if slash_action == "rerun":
+            # /retry : rejoue le dernier message utilisateur (récupéré dans
+            # la file d'événements) en tour LLM normal.
+            for ev in reversed(list(session.queue)):
+                if ev.get("type") == "user":
+                    user_message = ev.get("text", "")
+                    break
+
+        # 2. Tour agent normal (LLM).
         from agent_bridge import run_turn_async
 
         result = await run_turn_async(

@@ -12,6 +12,7 @@ export type SessionEvent =
   | { type: 'done' }
   | { type: 'aborted' }
   | { type: 'info'; message: string }
+  | { type: 'clear' }
 
 export interface SessionApi {
   createSession(): Promise<string | null>

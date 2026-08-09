@@ -45,6 +45,8 @@ function EventLine({ event }: { event: SessionEvent }) {
       return <Text color="blue">info: {event.message}</Text>
     case 'done':
       return null
+    case 'clear':
+      return null
     case 'aborted':
       return <Text color="red">[aborted]</Text>
     default:
@@ -113,6 +115,11 @@ export default function App({ baseUrl }: Props) {
       if (stopped) return
       api.streamEvents(
         (ev) => {
+          if (ev.type === 'clear') {
+            // /clear : vide l'écran (événement consommé, non affiché).
+            setLines([])
+            return
+          }
           setLines((prev) => pushLine(prev, ev))
           if (ev.type === 'done' || ev.type === 'error' || ev.type === 'aborted') setBusy(false)
         },
