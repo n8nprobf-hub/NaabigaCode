@@ -15,14 +15,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from naabiga_constants import OPENROUTER_BASE_URL
-from naabiga_cli.config import load_env
+from shared.config import load_env
 from agent.secret_scope import get_secret as _get_secret
 from agent.credential_persistence import (
     is_borrowed_credential_source,
     sanitize_borrowed_credential_payload,
 )
-import naabiga_cli.auth as auth_mod
-from naabiga_cli.auth import (
+import shared.auth as auth_mod
+from shared.auth import (
     CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
     PROVIDER_REGISTRY,
     _auth_store_lock,

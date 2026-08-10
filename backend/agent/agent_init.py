@@ -47,8 +47,8 @@ from agent.tool_guardrails import (
     ToolCallGuardrailController,
     ToolGuardrailDecision,
 )
-from naabiga_cli.config import cfg_get
-from naabiga_cli.timeouts import get_provider_request_timeout
+from shared.config import cfg_get
+from shared.timeouts import get_provider_request_timeout
 from naabiga_constants import get_naabiga_home
 from utils import base_url_host_matches, is_truthy_value
 

@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from naabiga_cli._subprocess_compat import IS_WINDOWS, windows_hide_flags
+from shared._subprocess_compat import IS_WINDOWS, windows_hide_flags
 
 logger = logging.getLogger(__name__)
 

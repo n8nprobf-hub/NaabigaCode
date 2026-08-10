@@ -60,7 +60,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from naabiga_cli._subprocess_compat import IS_WINDOWS, windows_hide_flags
+from shared._subprocess_compat import IS_WINDOWS, windows_hide_flags
 
 logger = logging.getLogger("naabiga.coding_context")
 

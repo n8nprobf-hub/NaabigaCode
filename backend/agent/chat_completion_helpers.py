@@ -25,7 +25,7 @@ import uuid
 from types import SimpleNamespace
 from typing import Any, Dict, Optional
 
-from naabiga_cli.timeouts import get_provider_request_timeout, get_provider_stale_timeout
+from shared.timeouts import get_provider_request_timeout, get_provider_stale_timeout
 from naabiga_constants import PARTIAL_STREAM_STUB_ID, FINISH_REASON_LENGTH
 from agent.error_classifier import FailoverReason
 from agent.gemini_native_adapter import is_native_gemini_base_url
