@@ -21,7 +21,7 @@ import time
 import uuid
 from collections import deque
 from pathlib import Path
-from typing import Any, AsyncGenerator, Deque, Dict, Optional
+from typing import Any, AsyncGenerator, Deque, Dict
 
 import uvicorn
 from fastapi import FastAPI

@@ -2037,7 +2037,7 @@ class NaabigaACPAgent(acp.Agent):
         normalized_mode = str(mode_id or "").strip()
         if normalized_mode not in self._MODE_TO_EDIT_APPROVAL_POLICY:
             normalized_mode = self._MODE_DEFAULT
-        setattr(state, "mode", normalized_mode)
+        state.mode = normalized_mode
         self.session_manager.save_session(session_id)
         logger.info("Session %s: mode switched to %s", session_id, normalized_mode)
         return SetSessionModeResponse()
@@ -2053,13 +2053,13 @@ class NaabigaACPAgent(acp.Agent):
 
         if str(config_id) == self._EDIT_APPROVAL_POLICY_CONFIG_ID:
             mode = self._EDIT_APPROVAL_POLICY_TO_MODE.get(str(value), self._MODE_DEFAULT)
-            setattr(state, "mode", mode)
+            state.mode = mode
         else:
             options = getattr(state, "config_options", None)
             if not isinstance(options, dict):
                 options = {}
             options[str(config_id)] = value
-            setattr(state, "config_options", options)
+            state.config_options = options
         self.session_manager.save_session(session_id)
         logger.info("Session %s: config option %s updated", session_id, config_id)
         return SetSessionConfigOptionResponse(config_options=[])

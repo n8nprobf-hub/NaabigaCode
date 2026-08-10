@@ -6,7 +6,6 @@ No remote dependencies.
 Enhanced with UI-UX-PRO-MAX design intelligence.
 """
 
-import json
 import datetime
 from typing import Any, Dict, List
 
@@ -645,7 +644,8 @@ def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
 
 def _format_timestamp(ts: float) -> str:
-    if not ts: return "N/A"
+    if not ts:
+        return "N/A"
     return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 def _generate_messages_html(messages: List[Dict[str, Any]]) -> str:
@@ -690,7 +690,7 @@ def _generate_messages_html(messages: List[Dict[str, Any]]) -> str:
         chevron_html = ICON_CHEVRON_RIGHT.replace('class="', 'class="chevron ')
         
         html = f'<div class="{msg_class}"{delay_style}>'
-        html += f'  <div class="message-header">'
+        html += '  <div class="message-header">'
         html += f'    <div class="role-badge">{chevron_html} {role_icon} {role}</div>'
         html += f'    <div class="timestamp">{timestamp}</div>'
         html += '  </div>'
@@ -755,7 +755,8 @@ def generate_multi_session_html_export(sessions: List[Dict[str, Any]]) -> str:
         for s in sessions:
             sid = s.get("id", "N/A")
             title = s.get("title") or s.get("preview") or "Untitled Session"
-            if len(title) > 50: title = title[:47] + "..."
+            if len(title) > 50:
+                title = title[:47] + "..."
             date = _format_timestamp(s.get("started_at", 0)).split(" ")[0]
             
             item = f'''
@@ -798,7 +799,8 @@ def generate_multi_session_html_export(sessions: List[Dict[str, Any]]) -> str:
         messages_html = _generate_messages_html(messages)
         
         view_class = "session-view"
-        if not is_multi: view_class += " active"
+        if not is_multi:
+            view_class += " active"
         
         session_view_id = f"view-{sid}"
         

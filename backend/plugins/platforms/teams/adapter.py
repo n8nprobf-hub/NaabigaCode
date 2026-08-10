@@ -156,7 +156,7 @@ class TeamsSummaryWriter:
         platform_config: PlatformConfig | None = None,
         *,
         graph_client: Any | None = None,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,  # noqa: F821 — lazy-imported dep (see __future__ annotations)
     ) -> None:
         self._platform_config = platform_config
         self._graph_client = graph_client

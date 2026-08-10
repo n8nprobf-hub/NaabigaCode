@@ -298,7 +298,6 @@ _EXTRA_ENV_KEYS = frozenset({
     "LANGFUSE_SECRET_KEY",
     "LANGFUSE_BASE_URL",
 })
-import yaml
 
 from naabiga_cli.colors import Colors, color
 from naabiga_cli.default_soul import DEFAULT_SOUL_MD, is_legacy_template_soul
@@ -1407,16 +1406,10 @@ DEFAULT_CONFIG = {
     # See tools/kanban_tools.py and naabiga_cli/kanban_db.py for the actual
     # implementations. Per-platform notification opt-out is handled by the
     # kanban dashboard (see ``naabiga dashboard`` -> Notifications).
-    "kanban": {
-        # Auto-subscribe the originating gateway/TUI session to task
-        # completion + block events when ``kanban_create`` is called from
-        # inside a session that has a persistent delivery channel. The
-        # agent that dispatched the task will get notified automatically
-        # instead of having to poll. Disable to mirror pre-feature
-        # behaviour — e.g. for a profile that prefers explicit
-        # ``kanban_notify-subscribe`` calls per task.
-        "auto_subscribe_on_create": True,
-    },
+    # NOTE: the full kanban dict (dispatcher, auto_subscribe_on_create, etc.)
+    # lives further down in this file (search "Kanban multi-agent coordination").
+    # Kept here as a doc stub only to avoid a second "kanban" key that would
+    # silently shadow/duplicate the one below.
 
     # Anthropic prompt caching (Claude via OpenRouter or native Anthropic API).
     # cache_ttl must be "5m" or "1h" (Anthropic-supported tiers); other values are ignored.
@@ -2628,6 +2621,14 @@ DEFAULT_CONFIG = {
     # each claimable ready task. One dispatcher per profile is sufficient;
     # running more than one on the same kanban.db will race for claims.
     "kanban": {
+        # Auto-subscribe the originating gateway/TUI session to task
+        # completion + block events when ``kanban_create`` is called from
+        # inside a session that has a persistent delivery channel. The
+        # agent that dispatched the task will get notified automatically
+        # instead of having to poll. Disable to mirror pre-feature
+        # behaviour — e.g. for a profile that prefers explicit
+        # ``kanban_notify-subscribe`` calls per task.
+        "auto_subscribe_on_create": True,
         # Run the dispatcher inside the gateway process. On by default —
         # the cost is ~300µs every `dispatch_interval_seconds` when idle,
         # and gateway is the supervisor users already have. Set to false
@@ -8286,7 +8287,6 @@ def _inject_platform_plugin_env_vars() -> None:
         return
     _platform_plugin_env_vars_injected = True
     try:
-        import yaml  # type: ignore
 
         # Resolve the bundled plugins dir from this file's location so the
         # injector works regardless of CWD.
@@ -8326,7 +8326,7 @@ def _inject_platform_plugin_env_vars() -> None:
                 # is a password field unless explicitly overridden.
                 name_upper = name.upper()
                 is_secret = bool(meta.get("password") or meta.get("secret"))
-                if not is_secret and not meta.get("password") is False:
+                if not is_secret and meta.get("password") is not False:
                     is_secret = any(
                         name_upper.endswith(suf)
                         for suf in ("_TOKEN", "_SECRET", "_KEY", "_PASSWORD", "_JSON")

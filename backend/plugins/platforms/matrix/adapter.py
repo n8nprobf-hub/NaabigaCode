@@ -937,8 +937,6 @@ class MatrixAdapter(BasePlatformAdapter):
             "✅": "once",
             "♾️": "always",
             "♾": "always",
-            "\u267e\ufe0f": "always",
-            "\u267e": "always",
             "❌": "deny",
             "❎": "deny",
         }
@@ -4428,8 +4426,6 @@ async def _standalone_send(
 def interactive_setup() -> None:
     """Configure Matrix credentials. Replaces naabiga_cli/setup.py::_setup_matrix
     and the static _PLATFORMS["matrix"] dict. CLI helpers are lazy-imported."""
-    import shutil
-    import sys as _sys
     from naabiga_cli.config import get_env_value, save_env_value
     from naabiga_cli.cli_output import (
         prompt,

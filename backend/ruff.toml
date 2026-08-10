@@ -1,0 +1,25 @@
+# ruff.toml — NaabigaCode backend
+# Le codebase est un gros legacy (400k+ lignes). On active les règles
+# CRITIQUES (bugs réels) plutôt que la config par défaut agressive.
+# La CI échoue désormais sur ces règles.
+#
+# Règles actives:
+#   E4/E7/E9 — erreurs de syntaxe, structure, indentation
+#   F       — bugs détectables: undefined names, imports inutilisés, etc.
+#
+# Ignorées (volontaires dans ce projet):
+#   E402 — imports conditionnels après le bootstrap (sys.path, plugins)
+#   E741 — noms ambigus `l`/`O`/`I` (style seul, non bloquant)
+#   E501 — longueur de ligne (style seul)
+
+target-version = "py312"
+
+lint.select = [
+    "E4", "E7", "E9",  # syntax/structural errors
+    "F",               # pyflakes — undefined names, unused imports, etc.
+]
+lint.ignore = [
+    "E402",  # imports conditionnels (pattern bootstrap du projet)
+    "E741",  # noms ambigus (style)
+    "E501",  # longueur de ligne (style)
+]

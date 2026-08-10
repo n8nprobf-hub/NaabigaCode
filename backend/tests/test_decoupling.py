@@ -97,7 +97,6 @@ def test_agent_modules_compile():
     """The modified agent/ modules compile without error."""
     import py_compile
     import os
-    import tempfile
 
     files = [
         "agent/skill_preprocessing.py",

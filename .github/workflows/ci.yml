@@ -29,7 +29,7 @@ jobs:
           pip install ruff pytest
 
       - name: Lint (ruff)
-        run: ruff check . --output-format=github || true
+        run: ruff check . --output-format=github
 
       - name: Compile check
         run: python -m compileall -q .

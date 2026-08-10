@@ -897,7 +897,9 @@ def _build_polished_completion_content(
         "cronjob": lambda: _format_media_or_cron_result(tool_name, result),
     }.get(tool_name)
     if formatter is None and tool_name in _POLISHED_TOOLS:
-        formatter = lambda: _format_generic_structured_result(tool_name, result)
+        def _polished_formatter():
+            return _format_generic_structured_result(tool_name, result)
+        formatter = _polished_formatter
     if formatter is None:
         text = _format_generic_structured_result(tool_name, result, fallback_to_text=False)
     else:

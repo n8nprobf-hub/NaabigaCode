@@ -62,6 +62,11 @@ iex (irm https://naabigaCode.iconedor.com/install.ps1)
 > retombe sur le tarball officiel de la release GitHub. Il crée le venv
 > Python et installe les dépendances automatiquement.
 
+> **Statut npm :** le package n'est pas encore publié sur le registry npm.
+> L'installation officielle passe par le tarball GitHub (release `v0.2.0`),
+> géré automatiquement par l'installateur ci-dessus. La commande npm
+> ci-dessous ne fonctionnera que lorsque la publication sera faite.
+
 **Ou via npm (une fois publié sur le registry) :**
 
 ```bash

@@ -1787,7 +1787,7 @@ def _extract_transcript_text(transcription: Any) -> str:
         return transcription.strip()
 
     if hasattr(transcription, "text"):
-        value = getattr(transcription, "text")
+        value = transcription.text
         if isinstance(value, str):
             return value.strip()
 

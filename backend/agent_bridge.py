@@ -15,9 +15,8 @@ import asyncio
 import logging
 import os
 import sys
-import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 # ── Bootstrap : le coeur Naabiga vit dans backend/agent + run_agent.py ──
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -89,7 +88,6 @@ def run_turn(
     # on coupe les logs racine pendant le tour (comme oneshot).
     logging.disable(logging.CRITICAL)
     try:
-        from naabiga_cli.oneshot import _run_agent
         from naabiga_cli.config import load_config
 
         runtime = _resolve_runtime(provider, model)

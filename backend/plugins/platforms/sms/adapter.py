@@ -24,6 +24,7 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import urllib.parse
 from typing import Any, Dict, Optional
 
@@ -75,7 +76,7 @@ class SmsAdapter(BasePlatformAdapter):
         self._webhook_host: str = os.getenv("SMS_WEBHOOK_HOST", DEFAULT_WEBHOOK_HOST)
         self._webhook_url: str = os.getenv("SMS_WEBHOOK_URL", "").strip()
         self._runner = None
-        self._http_session: Optional["aiohttp.ClientSession"] = None
+        self._http_session: Optional["aiohttp.ClientSession"] = None  # noqa: F821 — lazy-imported dep
 
     def _basic_auth_header(self) -> str:
         """Build HTTP Basic auth header value for Twilio."""
@@ -293,7 +294,7 @@ class SmsAdapter(BasePlatformAdapter):
     # Twilio webhook handler
     # ------------------------------------------------------------------
 
-    async def _handle_webhook(self, request) -> "aiohttp.web.Response":
+    async def _handle_webhook(self, request) -> "aiohttp.web.Response":  # noqa: F821 — lazy-imported dep
         from aiohttp import web
 
         try:

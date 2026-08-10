@@ -5354,7 +5354,7 @@ class DiscordAdapter(BasePlatformAdapter):
             try:
                 thread = await message.create_thread(name=thread_name, auto_archive_duration=1440)
                 try:
-                    setattr(thread, "_naabiga_auto_thread_initial_name", thread_name)
+                    thread._naabiga_auto_thread_initial_name = thread_name
                 except Exception:
                     pass
                 return thread
@@ -5370,7 +5370,7 @@ class DiscordAdapter(BasePlatformAdapter):
                         reason=reason,
                     )
                     try:
-                        setattr(thread, "_naabiga_auto_thread_initial_name", thread_name)
+                        thread._naabiga_auto_thread_initial_name = thread_name
                     except Exception:
                         pass
                     return thread

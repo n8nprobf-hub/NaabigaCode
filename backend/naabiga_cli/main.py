@@ -265,7 +265,6 @@ from pathlib import Path
 from typing import Optional
 
 
-from naabiga_cli.subcommands._shared import add_accept_hooks_flag as _add_accept_hooks_flag
 from naabiga_cli.subcommands.cron import build_cron_parser
 from naabiga_cli.subcommands.gateway import build_gateway_parser
 from naabiga_cli.subcommands.profile import build_profile_parser
@@ -590,7 +589,6 @@ from naabiga_cli import __version__, __release_date__
 # (god-file decomposition Phase 2). Re-imported here so select_provider_and_model and
 # existing test monkeypatches (naabiga_cli.main._model_flow_*) keep resolving unchanged.
 from naabiga_cli.model_setup_flows import (
-    _prompt_auth_credentials_choice,
     _model_flow_openrouter,
     _model_flow_nous,
     _model_flow_openai_codex,
@@ -604,7 +602,6 @@ from naabiga_cli.model_setup_flows import (
     _model_flow_copilot_acp,
     _model_flow_kimi,
     _model_flow_stepfun,
-    _model_flow_bedrock_api_key,
     _model_flow_bedrock,
     _model_flow_vertex,
     _model_flow_api_key_provider,
@@ -8204,10 +8201,8 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
                 capture_output=True,
                 text=True,
             )
-            upstream_exists = False
             compare_branch = f"origin/{branch}"
         else:
-            upstream_exists = True
             compare_branch = f"upstream/{branch}"
     else:
         # Non-default branch: compare against origin/<branch> directly.
@@ -8218,7 +8213,6 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
             capture_output=True,
             text=True,
         )
-        upstream_exists = False
         compare_branch = f"origin/{branch}"
 
     if fetch_result.returncode != 0:
@@ -11894,7 +11888,7 @@ def _try_termux_fast_cli_launch() -> bool:
         if interactive_prompt:
             # Bare Termux CLI should reach the prompt first and do agent-only
             # discovery on the first submitted turn instead of before input.
-            setattr(args, "compact", True)
+            args.compact = True
             os.environ["NAABIGA_DEFER_AGENT_STARTUP"] = "1"
             os.environ["NAABIGA_FAST_STARTUP_BANNER"] = "1"
             if getattr(args, "accept_hooks", False):

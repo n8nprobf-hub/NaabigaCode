@@ -443,7 +443,7 @@ class FactRetriever:
 
     def _score_facts_by_vector(
         self,
-        target_vec: "np.ndarray",
+        target_vec: "np.ndarray",  # noqa: F821 — string annotation, numpy is optional
         category: str | None = None,
         limit: int = 10,
     ) -> list[dict]:

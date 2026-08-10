@@ -13,7 +13,6 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from naabiga_constants import get_naabiga_home
 
 from ._oss_providers import (
     LLM_PROVIDERS,

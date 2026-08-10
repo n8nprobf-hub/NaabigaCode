@@ -8,7 +8,6 @@ Règles de vie :
 - tout le reste (orphelin ET non-découvert)             → code mort réel
 """
 import ast
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent

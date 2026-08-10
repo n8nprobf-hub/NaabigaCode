@@ -385,7 +385,8 @@ def _load_secrets_config(home_path: Path) -> dict:
     if not config_path.exists():
         return {}
     try:
-        import yaml  # type: ignore
+        import yaml  # type: ignore  # noqa: F401 — availability guard: yaml must
+        # be importable (used by fast_safe_load below); skip otherwise.
     except ImportError:
         return {}
     try:

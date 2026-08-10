@@ -329,7 +329,7 @@ def _validate_operations(
 
 
 def apply_v4a_operations(operations: List[PatchOperation],
-                          file_ops: Any) -> 'PatchResult':
+                          file_ops: Any) -> 'PatchResult':  # noqa: F821 — forward ref
     """Apply V4A patch operations using a file operations interface.
 
     Uses a two-phase validate-then-apply approach:

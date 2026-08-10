@@ -1360,8 +1360,8 @@ def _cross_process_init_lock(path: Path):
         if _IS_WINDOWS:
             import msvcrt
 
-            locking = getattr(msvcrt, "locking")
-            nb_lock = getattr(msvcrt, "LK_NBLCK")
+            locking = msvcrt.locking
+            nb_lock = msvcrt.LK_NBLCK
             while True:
                 try:
                     handle.seek(0)
@@ -1400,8 +1400,8 @@ def _cross_process_init_lock(path: Path):
                     import msvcrt
 
                     handle.seek(0)
-                    locking = getattr(msvcrt, "locking")
-                    unlock_mode = getattr(msvcrt, "LK_UNLCK")
+                    locking = msvcrt.locking
+                    unlock_mode = msvcrt.LK_UNLCK
                     locking(handle.fileno(), unlock_mode, 1)
                 else:
                     import fcntl
@@ -1453,9 +1453,9 @@ def _dispatch_tick_lock(db_path: Path):
                 import msvcrt
 
                 handle.seek(0)
-                locking = getattr(msvcrt, "locking")
+                locking = msvcrt.locking
                 # LK_NBLCK = non-blocking exclusive byte-range lock.
-                nb_lock = getattr(msvcrt, "LK_NBLCK")
+                nb_lock = msvcrt.LK_NBLCK
                 locking(handle.fileno(), nb_lock, 1)
                 acquired = True
             except (OSError, AttributeError):
@@ -1483,8 +1483,8 @@ def _dispatch_tick_lock(db_path: Path):
                         import msvcrt
 
                         handle.seek(0)
-                        locking = getattr(msvcrt, "locking")
-                        unlock_mode = getattr(msvcrt, "LK_UNLCK")
+                        locking = msvcrt.locking
+                        unlock_mode = msvcrt.LK_UNLCK
                         locking(handle.fileno(), unlock_mode, 1)
                     else:
                         import fcntl
@@ -4577,7 +4577,6 @@ def block_task(
         raise ValueError(
             f"block kind must be one of {sorted(VALID_BLOCK_KINDS)} or None"
         )
-    routed_to = "blocked"
     recurrences = 0
     with write_txn(conn):
         cur_row = conn.execute(
@@ -4628,7 +4627,6 @@ def block_task(
                 conn, task_id, "dependency_wait",
                 {"reason": reason, "kind": kind}, run_id=run_id,
             )
-            routed_to = "todo"
             _blocked_task = get_task(conn, task_id)
             _fire_kanban_lifecycle_hook(
                 "kanban_task_blocked",
@@ -4688,7 +4686,6 @@ def block_task(
                 },
                 run_id=run_id,
             )
-            routed_to = "triage"
         else:
             if expected_run_id is None:
                 cur = conn.execute(
@@ -6236,7 +6233,6 @@ def detect_stale_running(
 
 
     now = int(time.time())
-    host_prefix = f"{_claimer_id().split(':', 1)[0]}:"
     reclaimed: list[str] = []
 
     rows = conn.execute(
@@ -6596,7 +6592,6 @@ def _record_task_failure(
         if row is None:
             return False
         failures = int(row["consecutive_failures"]) + 1
-        cur_status = row["status"]
 
         # Per-task override wins over both caller-supplied and default
         # thresholds. None (the common case) falls through.
