@@ -23,3 +23,15 @@ lint.ignore = [
     "E741",  # noms ambigus (style)
     "E501",  # longueur de ligne (style)
 ]
+
+[lint.per-file-ignores]
+# Tests: blind-except et asserts sont OK
+"tests/*.py" = ["BLE001"]
+
+# Code VENDU depuis Hermes agent (gateway/, hermes_cli/) — ne pas modifier
+# pour rester aligné avec l'upstream. Les erreurs résiduelles sont des
+# faux positifs: annotations-string (F821), guards d'optionalité (F401),
+# et style compact (E701/E702/E731) volontaire dans l'original.
+"gateway/*.py" = ["F821", "F401", "E701", "E702", "E731"]
+"gateway/platforms/*.py" = ["F821", "F401", "E701", "E702", "E731"]
+"hermes_cli/*.py" = ["F821", "F401", "E701", "E702", "E731"]

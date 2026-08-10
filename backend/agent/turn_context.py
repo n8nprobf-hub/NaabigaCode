@@ -563,3 +563,13 @@ def build_turn_context(
         plugin_user_context=plugin_user_context,
         ext_prefetch_cache=ext_prefetch_cache,
     )
+
+
+def extract_api_content_sidecar(msg) -> Optional[str]:
+    """Extract the ``api_content`` sidecar from a message dict for persistence.
+
+    Shared by the gateway/branch forwarding sites that copy the sidecar into a
+    new row. Returns the string sidecar or ``None`` when absent/non-string.
+    """
+    v = msg.get("api_content")
+    return v if isinstance(v, str) else None
