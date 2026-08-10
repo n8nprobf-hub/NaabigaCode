@@ -74,10 +74,14 @@ def test_run_agent_imports() -> None:
 
 
 def test_aiagent_constructs_with_defaults() -> None:
-    """AIAgent() builds with no arguments (all params optional)."""
+    """AIAgent() builds with explicit model+endpoint (no network, no config)."""
     import run_agent
 
-    agent = run_agent.AIAgent()
+    agent = run_agent.AIAgent(
+        model="test-model",
+        base_url="https://example.invalid/v1",
+        api_key="sk-test",
+    )
     try:
         # Constructor must not require a provider or network.
         assert agent is not None
@@ -115,7 +119,9 @@ def test_aiagent_base_url_property() -> None:
     import run_agent
 
     agent = run_agent.AIAgent(
+        model="test-model",
         base_url="https://platform.example.com/v1",
+        api_key="sk-test",
     )
     try:
         assert hasattr(agent, "base_url")
