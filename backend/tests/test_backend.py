@@ -160,6 +160,68 @@ def test_history_unknown_session(client):
     assert r.json() == {"events": []}
 
 
+def test_slash_session_alias(client):
+    """/session (singulier) est un alias de /sessions — intercepté, pas LLM."""
+    sid = client.post("/session/create").json()["session_id"]
+    r = client.post(f"/session/{sid}/message", json={"message": "/session"})
+    assert r.json() == {"accepted": True}
+
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    texts = [str(e.get("text") or e.get("message") or "") for e in session.queue]
+    assert any("session courante" in t for t in texts), texts
+    # Pas de tour LLM : aucun événement "re:" du stub
+    assert not any("re:" in t for t in texts), texts
+
+
+def test_slash_retry_replays_previous_message(client):
+    """/retry rejoue le message PRÉCÉDENT (pas /retry lui-même), via le stub."""
+    sid = client.post("/session/create").json()["session_id"]
+    client.post(f"/session/{sid}/message", json={"message": "rejoue-moi"})
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+    # Consomme la file (comme le ferait un TUI connecté au SSE)
+    session.queue.clear()
+
+    r = client.post(f"/session/{sid}/message", json={"message": "/retry"})
+    assert r.json() == {"accepted": True}
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    texts = [str(e.get("text") or e.get("message") or "") for e in session.queue]
+    # Le stub répond "re: <prompt>" — la prompt doit être le message précédent
+    assert any("re: rejoue-moi" in t for t in texts), texts
+
+
+def test_slash_history_uses_stable_history(client):
+    """/history affiche la conversation même après consommation de la queue."""
+    sid = client.post("/session/create").json()["session_id"]
+    client.post(f"/session/{sid}/message", json={"message": "premier"})
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+    session.queue.clear()
+
+    r = client.post(f"/session/{sid}/message", json={"message": "/history"})
+    assert r.json() == {"accepted": True}
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    texts = [str(e.get("text") or e.get("message") or "") for e in session.queue]
+    assert any("user: premier" in t for t in texts), texts
+
+
 def test_purge_expired_sessions(client):
     """La purge supprime les sessions inactives mais pas les actives."""
     module = importlib.import_module("main")

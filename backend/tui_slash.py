@@ -52,11 +52,33 @@ def _snapshot_events(session: Any) -> List[Dict[str, Any]]:
     return list(getattr(session, "queue", []) or [])
 
 
-def _last_user_text(session: Any) -> Optional[str]:
-    """Dernier message utilisateur de la session (pour /retry)."""
-    for ev in reversed(_snapshot_events(session)):
-        if ev.get("type") == "user":
-            return ev.get("text", "")
+def _stable_history(session: Any) -> List[Dict[str, Any]]:
+    """Événements stables de la session (rejouables).
+
+    Privilégie ``session.history`` (conservé même après consommation SSE) ;
+    replie sur la queue quand l'attribut n'existe pas (sessions créées avant
+    l'ajout du champ).
+    """
+    hist = getattr(session, "history", None)
+    if hist is not None:
+        return list(hist)
+    return list(getattr(session, "queue", []) or [])
+
+
+def _last_user_text(session: Any, exclude: Optional[str] = None) -> Optional[str]:
+    """Dernier message utilisateur de la session (pour /retry).
+
+    Cherche dans l'historique STABLE (pas la queue, consommée par le SSE) et
+    ignore *exclude* — le message courant ``/retry`` est lui-même émis comme
+    événement ``user`` avant le dispatch, il ne doit pas être la cible.
+    """
+    for ev in reversed(_stable_history(session)):
+        if ev.get("type") != "user":
+            continue
+        text = ev.get("text", "")
+        if exclude is not None and text == exclude:
+            continue
+        return text
     return None
 
 
@@ -175,18 +197,20 @@ def handle_slash(
     if name == "history":
         history = [
             f"[{i}] {ev.get('type')}: {str(ev.get('text') or ev.get('message') or '')[:120]}"
-            for i, ev in enumerate(_snapshot_events(session))
+            for i, ev in enumerate(_stable_history(session))
         ]
         text = "\n".join(history) if history else "(historique vide)"
         emit({"type": "assistant", "text": text})
         return "consumed"
 
     if name == "retry":
-        last = _last_user_text(session)
+        # Exclut le message courant («/retry») — il a déjà été émis comme
+        # événement «user» avant le dispatch et ne doit pas être rejoué.
+        last = _last_user_text(session, exclude=stripped)
         if not last:
             emit({"type": "assistant", "text": "rien à rejouer (aucun message utilisateur)."})
             return "consumed"
-        emit({"type": "assistant", "text": f"Rejeu du dernier message : «{last[:200]}»"})
+        emit({"type": "info", "message": f"Rejeu du dernier message : «{last[:200]}»"})
         # Rejeu réel : le tour LLM repart avec la prompt originale.
         return "rerun"
 

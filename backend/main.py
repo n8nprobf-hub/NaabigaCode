@@ -224,10 +224,12 @@ async def _run_turn(session: Session, user_message: str) -> None:
         if slash_action == "consumed":
             return
         if slash_action == "rerun":
-            # /retry : rejoue le dernier message utilisateur (récupéré dans
-            # la file d'événements) en tour LLM normal.
-            for ev in reversed(list(session.queue)):
-                if ev.get("type") == "user":
+            # /retry : rejoue le dernier message utilisateur en tour LLM
+            # normal. On cherche dans l'HISTORIQUE STABLE (session.history)
+            # en excluant le message courant «/retry» — la queue est
+            # consommée par le SSE et contient /retry comme dernier «user».
+            for ev in reversed(getattr(session, "history", list(session.queue))):
+                if ev.get("type") == "user" and ev.get("text", "") != user_message:
                     user_message = ev.get("text", "")
                     break
 
