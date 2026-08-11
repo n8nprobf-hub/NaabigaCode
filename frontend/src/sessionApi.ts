@@ -18,6 +18,7 @@ export interface SessionApi {
   createSession(): Promise<string | null>
   sendMessage(message: string): Promise<boolean>
   abort(): Promise<void>
+  loadHistory(): Promise<SessionEvent[]>
   streamEvents(onEvent: (ev: SessionEvent) => void, onClose: () => void): void
   close(): void
   /** Interne : contrôleur d'abandon du stream SSE en cours. */
@@ -59,6 +60,17 @@ export function connectSession(baseUrl: string, sessionId: string): SessionApi {
         })
       } catch {
         // ignore
+      }
+    },
+
+    async loadHistory() {
+      try {
+        const res = await fetch(`${baseUrl}/session/${encodeURIComponent(sessionId)}/history`)
+        if (!res.ok) return []
+        const data = (await res.json()) as { events?: SessionEvent[] }
+        return Array.isArray(data.events) ? data.events : []
+      } catch {
+        return []
       }
     },
 

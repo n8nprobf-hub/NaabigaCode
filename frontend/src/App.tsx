@@ -69,6 +69,21 @@ function pushLine(lines: SessionEvent[], ev: SessionEvent): SessionEvent[] {
   return [...lines.slice(-(MAX_LINES - 1)), ev]
 }
 
+// Fusionne les morceaux `assistant` consécutifs d'un même tour en un seul
+// bloc (vrai rendu streaming : le texte s'accumule ligne par ligne au lieu
+// d'empiler chaque chunk SSE comme entrée séparée). La fusion s'arrête
+// d'elle-même : les tours sont séparés par des événements `user`/`tool`/
+// `done` qui cassent la chaîne (le SSE pousse aussi `done` dans lines).
+function appendEvent(lines: SessionEvent[], ev: SessionEvent): SessionEvent[] {
+  if (ev.type !== 'assistant') return pushLine(lines, ev)
+  const last = lines[lines.length - 1]
+  if (last && last.type === 'assistant') {
+    const merged: SessionEvent = { type: 'assistant', text: (last.text ?? '') + (ev.text ?? '') }
+    return [...lines.slice(0, -1), merged]
+  }
+  return pushLine(lines, ev)
+}
+
 export default function App({ baseUrl }: Props) {
   const { exit } = useApp()
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -90,8 +105,19 @@ export default function App({ baseUrl }: Props) {
         if (cancelled) return
         if (sid) {
           setSessionId(sid)
-          setReady(true)
-          apiRef.current = connectSession(baseUrl, sid)
+          const api = connectSession(baseUrl, sid)
+          apiRef.current = api
+          // Rejoue l'historique de la session si le backend en a conservé
+          // (nouvelle session → vide ; reconnexion → conversation complète).
+          const history = await api.loadHistory()
+          if (!cancelled) {
+            if (history.length > 0) {
+              // Fusionne aussi les morceaux assistant de l'historique rejoué
+              // (même réduction que dans le handler SSE).
+              setLines(history.reduce<SessionEvent[]>(appendEvent, []).slice(-MAX_LINES))
+            }
+            setReady(true)
+          }
           return
         }
         if (attempt < CREATE_RETRIES) {
@@ -123,7 +149,12 @@ export default function App({ baseUrl }: Props) {
             setLines([])
             return
           }
-          setLines((prev) => pushLine(prev, ev))
+          // done/aborted sont poussés dans lines : invisibles à l'écran
+          // (EventLine → null) mais ils scindent les tours successifs —
+          // sans eux, le chunk assistant suivant fusionnerait avec le bloc
+          // précédent. (Le backend ne les met pas dans /history, donc le
+          // replay n'a pas ce problème.)
+          setLines((prev) => appendEvent(prev, ev))
           if (ev.type === 'done' || ev.type === 'error' || ev.type === 'aborted') setBusy(false)
         },
         () => {

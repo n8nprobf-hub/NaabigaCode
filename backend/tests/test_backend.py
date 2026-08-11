@@ -127,6 +127,39 @@ def test_session_busy_rejects_second_message(client):
     assert any(e.get("type") == "error" for e in session.queue)
 
 
+def test_history_replays_stable_events(client):
+    """/history renvoie les événements stables même après consommation SSE."""
+    sid = client.post("/session/create").json()["session_id"]
+    client.post(f"/session/{sid}/message", json={"message": "bonjour"})
+
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        done = any(e.get("type") == "done" for e in session.queue)
+        if done and not session.busy:
+            break
+        time.sleep(0.02)
+
+    # Simule la consommation par un TUI déjà connecté au SSE
+    session.queue.clear()
+
+    r = client.get(f"/session/{sid}/history")
+    assert r.status_code == 200
+    events = r.json()["events"]
+    types = [e.get("type") for e in events]
+    assert "user" in types
+    assert "assistant" in types
+    assert "done" not in types
+    assert "aborted" not in types
+
+
+def test_history_unknown_session(client):
+    r = client.get("/session/nope/history")
+    assert r.status_code == 200
+    assert r.json() == {"events": []}
+
+
 def test_purge_expired_sessions(client):
     """La purge supprime les sessions inactives mais pas les actives."""
     module = importlib.import_module("main")

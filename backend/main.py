@@ -6,6 +6,8 @@ Session contract:
   POST /session/create         → { session_id }
   POST /session/{id}/message   → { accepted: bool }
   GET  /session/{id}/events    → SSE stream of event dicts
+  GET  /session/{id}/history   → { events: [...] }  (déjà émis, non consommés
+                                 par le SSE — pour recharger un TUI après coup)
   POST /session/{id}/abort     → { aborted: bool }
   GET  /health                 → { status }
 """
@@ -45,6 +47,7 @@ class Session:
         self.created_at = time.time()
         self.last_active = time.time()
         self.queue: Deque[Dict[str, Any]] = deque()
+        self.history: list[Dict[str, Any]] = []  # événements stables (user/assistant/tool/...)
         self.abort_event = asyncio.Event()
         self.busy = False
 
@@ -57,6 +60,10 @@ class Session:
 
     def emit(self, event: Dict[str, Any]) -> None:
         self.touch()
+        # Les événements transitoires (done/aborted) ne font pas partie de
+        # l'historique rejouable ; tout le reste y est conservé pour /history.
+        if event.get("type") not in ("done", "aborted"):
+            self.history.append(event)
         self.queue.append(event)
 
     async def stream_events(self) -> AsyncGenerator[str, None]:
@@ -187,6 +194,15 @@ async def session_events(session_id: str) -> StreamingResponse:
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.get("/session/{session_id}/history")
+async def session_history(session_id: str) -> Dict[str, Any]:
+    """Rejoue l'historique stable de la session (sans done/aborted)."""
+    session = sessions.get(session_id)
+    if not session:
+        return {"events": []}
+    return {"events": list(session.history)}
 
 
 # ── Agent loop adapter ───────────────────────────────────────────────
