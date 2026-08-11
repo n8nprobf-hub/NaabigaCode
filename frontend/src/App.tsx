@@ -177,6 +177,33 @@ export default function App({ baseUrl, initialSessionId }: Props) {
         // (nouvelle session → vide ; --resume → conversation complète).
         const history = await api.loadHistory()
         if (!cancelled) {
+          // Vérification explicite pour --resume : si l'utilisateur a demandé
+          // de reprendre une session (--resume <id>) mais que l'historique est
+          // vide, on vérifie que la session existe réellement côté backend
+          // (sinon purge/expiration/redémarrage backend → session introuvable).
+          if (initialSessionId && history.length === 0) {
+            try {
+              const headRes = await fetch(
+                `${baseUrl}/session/${encodeURIComponent(sid)}/history`,
+                { method: 'HEAD' },
+              )
+              if (!headRes.ok) {
+                // Session introuvable côté backend — on ne bascule pas
+                // silencieusement, on alerte l'utilisateur.
+                setLines((prev) =>
+                  pushLine(prev, {
+                    type: 'error',
+                    message: `session ${sid} introuvable (purgée/redémarrée) — impossible de reprendre`,
+                  }),
+                )
+                setReady(true)
+                return
+              }
+            } catch {
+              // Erreur réseau → on laisse la logique de reconnexion SSE
+              // détecter le problème (3 échecs → recréation).
+            }
+          }
           if (history.length > 0) {
             // Fusionne aussi les morceaux assistant de l'historique rejoué
             // (même réduction que dans le handler SSE).
@@ -210,6 +237,10 @@ export default function App({ baseUrl, initialSessionId }: Props) {
 
     const recreateSession = async (restart: () => void) => {
       if (stopped) return
+      // Ferme proprement l'ancien stream SSE avant de créer la nouvelle
+      // session — évite un double stream temporaire (ancien fetch restant
+      // actif jusqu'au GC ou à la fin serveur).
+      apiRef.current?.close()
       const probe = connectSession(baseUrl, '__probe__')
       const sid = await probe.createSession()
       probe.close()

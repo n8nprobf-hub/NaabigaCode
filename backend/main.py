@@ -265,7 +265,8 @@ async def _run_turn(session: Session, user_message: str) -> None:
 
         # Wrapper d'émission : chaque émission vérifie l'abort_event. Quand
         # l'utilisateur a demandé l'annulation (/abort), on stoppe le tour :
-        # on émet «aborted» et on coupe la boucle agent (ExceptionInterrupt).
+        # on lève _AbortTurn → le finally émettra «aborted» (un seul événement
+        # terminal, pas de double aborted/done).
         def _abortable_emit(ev):
             if session.abort_event.is_set():
                 raise _AbortTurn()
@@ -280,7 +281,9 @@ async def _run_turn(session: Session, user_message: str) -> None:
                 model=os.getenv("NAABIGA_INFERENCE_MODEL"),
             )
         except _AbortTurn:
-            session.emit({"type": "aborted"})
+            # Abort demandé : on ne fait RIEN ici — le finally émettra «aborted»
+            # (un seul événement terminal). Le delta courant est intentionnellement
+            # perdu : l'abort coupe net sans réponse partielle.
             return
         final = result.get("final_response") or ""
         if result.get("failed") and not final:
@@ -292,7 +295,11 @@ async def _run_turn(session: Session, user_message: str) -> None:
         logger.exception("Agent turn failed: %s", exc)
         session.emit({"type": "error", "message": str(exc)})
     finally:
-        session.emit({"type": "done"})
+        # Un seul événement terminal : «aborted» si on a aborté, sinon «done».
+        if session.abort_event.is_set():
+            session.emit({"type": "aborted"})
+        else:
+            session.emit({"type": "done"})
         session.busy = False
 
 

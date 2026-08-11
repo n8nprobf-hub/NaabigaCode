@@ -14,7 +14,7 @@ import React from 'react'
 import { render } from 'ink'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import App from './App'
 
@@ -29,7 +29,11 @@ function resolveBackendCommand(): { cmd: string; args: string[] } | null {
   // 3. ~/.naabiga/backend/main.py (installation utilisateur)
   const explicit = process.env.NAABIGA_BACKEND_MAIN
   const candidates: string[] = []
-  if (explicit) candidates.push(explicit)
+  if (explicit) {
+    // Résout en chemin absolu pour éviter le piège des chemins relatifs :
+    // ex. NAABIGA_BACKEND_MAIN=backend/main.py → dirname(dirname()) = '.'
+    candidates.push(resolve(explicit))
+  }
   let dir = __dirname
   for (let i = 0; i < 6; i++) {
     const probe = join(dir, 'backend', 'main.py')
