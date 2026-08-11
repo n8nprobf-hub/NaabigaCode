@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput } from 'ink'
 import Gradient from 'ink-gradient'
 import BigText from 'ink-big-text'
 import Spinner from 'ink-spinner'
-import { UncontrolledTextInput } from 'ink-text-input'
+import TextInput from 'ink-text-input'
 import { connectSession } from './sessionApi'
 import type { SessionApi, SessionEvent } from './sessionApi'
 
@@ -75,6 +75,9 @@ export default function App({ baseUrl }: Props) {
   const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [lines, setLines] = useState<SessionEvent[]>([])
+  // Champ de saisie contrôlé : valeur + curseur, vidé après chaque envoi
+  // (UncontrolledTextInput garde le texte tapé après Enter — UX cassée).
+  const [inputValue, setInputValue] = useState('')
   const apiRef = useRef<SessionApi | null>(null)
 
   // Create session on mount, with retries
@@ -154,6 +157,7 @@ export default function App({ baseUrl }: Props) {
     if (!api || busy) return
     setBusy(true)
     const ok = await api.sendMessage(value)
+    setInputValue('') // vide le champ immédiatement (même si refusé : le texte est dans l'historique)
     if (!ok) {
       setLines((prev) => pushLine(prev, { type: 'error', message: 'message refusé (session occupée ?)' }))
       setBusy(false)
@@ -193,9 +197,11 @@ export default function App({ baseUrl }: Props) {
           </Box>
           <Box>
             <Text color="green">❯ </Text>
-            <UncontrolledTextInput
-              placeholder="Ask anything…"
+            <TextInput
+              value={inputValue}
+              onChange={setInputValue}
               onSubmit={handleSubmit}
+              placeholder="Ask anything…"
             />
           </Box>
         </Box>
