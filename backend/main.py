@@ -206,6 +206,14 @@ async def session_history(session_id: str) -> Dict[str, Any]:
 
 
 # ── Agent loop adapter ───────────────────────────────────────────────
+class _AbortTurn(Exception):
+    """Levée par le wrapper d'émission quand l'utilisateur annule le tour.
+
+    Interrompt la boucle agent au prochain delta émis ; _run_turn la
+    rattrape et émet «aborted» (au lieu de laisser le tour finir).
+    """
+
+
 def _mark_slash_command(session: Any, user_message: str) -> None:
     """Marque l'événement user courant comme commande slash dans l'historique.
 
@@ -255,13 +263,25 @@ async def _run_turn(session: Session, user_message: str) -> None:
         # 2. Tour agent normal (LLM).
         from agent_bridge import run_turn_async
 
-        result = await run_turn_async(
-            session.id,
-            user_message,
-            emit=session.emit,
-            provider=os.getenv("NAABIGA_INFERENCE_PROVIDER"),
-            model=os.getenv("NAABIGA_INFERENCE_MODEL"),
-        )
+        # Wrapper d'émission : chaque émission vérifie l'abort_event. Quand
+        # l'utilisateur a demandé l'annulation (/abort), on stoppe le tour :
+        # on émet «aborted» et on coupe la boucle agent (ExceptionInterrupt).
+        def _abortable_emit(ev):
+            if session.abort_event.is_set():
+                raise _AbortTurn()
+            session.emit(ev)
+
+        try:
+            result = await run_turn_async(
+                session.id,
+                user_message,
+                emit=_abortable_emit,
+                provider=os.getenv("NAABIGA_INFERENCE_PROVIDER"),
+                model=os.getenv("NAABIGA_INFERENCE_MODEL"),
+            )
+        except _AbortTurn:
+            session.emit({"type": "aborted"})
+            return
         final = result.get("final_response") or ""
         if result.get("failed") and not final:
             session.emit({"type": "error", "message": result.get("error") or "turn failed"})

@@ -107,6 +107,9 @@ function EventLine({ event }: { event: SessionEvent }) {
 
 interface Props {
   baseUrl: string
+  /** Session à reprendre (--resume) : charge son historique au lieu d'en
+   *  créer une neuve. */
+  initialSessionId?: string
 }
 
 // Nombre max d'événements conservés à l'écran (anti-fuite mémoire sur
@@ -135,7 +138,7 @@ function appendEvent(lines: SessionEvent[], ev: SessionEvent): SessionEvent[] {
   return pushLine(lines, ev)
 }
 
-export default function App({ baseUrl }: Props) {
+export default function App({ baseUrl, initialSessionId }: Props) {
   const { exit } = useApp()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -146,35 +149,42 @@ export default function App({ baseUrl }: Props) {
   const [inputValue, setInputValue] = useState('')
   const apiRef = useRef<SessionApi | null>(null)
 
-  // Create session on mount, with retries
+  // Create session on mount, with retries (ou reprise si --resume)
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      for (let attempt = 1; attempt <= CREATE_RETRIES; attempt++) {
-        const probe = connectSession(baseUrl, '__probe__')
-        const sid = await probe.createSession()
-        probe.close()
-        if (cancelled) return
-        if (sid) {
-          setSessionId(sid)
-          const api = connectSession(baseUrl, sid)
-          apiRef.current = api
-          // Rejoue l'historique de la session si le backend en a conservé
-          // (nouvelle session → vide ; reconnexion → conversation complète).
-          const history = await api.loadHistory()
-          if (!cancelled) {
-            if (history.length > 0) {
-              // Fusionne aussi les morceaux assistant de l'historique rejoué
-              // (même réduction que dans le handler SSE).
-              setLines(history.reduce<SessionEvent[]>(appendEvent, []).slice(-MAX_LINES))
-            }
-            setReady(true)
+      // --resume <id> : on reprend la session existante (l'historique est
+      // rejoué ci-dessous) au lieu d'en créer une neuve.
+      let sid = initialSessionId ?? null
+      if (!sid) {
+        for (let attempt = 1; attempt <= CREATE_RETRIES; attempt++) {
+          const probe = connectSession(baseUrl, '__probe__')
+          sid = await probe.createSession()
+          probe.close()
+          if (cancelled) return
+          if (sid) break
+          if (attempt < CREATE_RETRIES) {
+            await new Promise((r) => setTimeout(r, CREATE_RETRY_DELAY_MS * attempt))
           }
-          return
         }
-        if (attempt < CREATE_RETRIES) {
-          await new Promise((r) => setTimeout(r, CREATE_RETRY_DELAY_MS * attempt))
+      }
+      if (cancelled) return
+      if (sid) {
+        setSessionId(sid)
+        const api = connectSession(baseUrl, sid)
+        apiRef.current = api
+        // Rejoue l'historique de la session si le backend en a conservé
+        // (nouvelle session → vide ; --resume → conversation complète).
+        const history = await api.loadHistory()
+        if (!cancelled) {
+          if (history.length > 0) {
+            // Fusionne aussi les morceaux assistant de l'historique rejoué
+            // (même réduction que dans le handler SSE).
+            setLines(history.reduce<SessionEvent[]>(appendEvent, []).slice(-MAX_LINES))
+          }
+          setReady(true)
         }
+        return
       }
       if (!cancelled) {
         setLines((prev) => pushLine(prev, { type: 'error', message: 'backend injoignable' }))
@@ -184,7 +194,7 @@ export default function App({ baseUrl }: Props) {
     return () => {
       cancelled = true
     }
-  }, [baseUrl])
+  }, [baseUrl, initialSessionId])
 
   // Stream events once session is up, with auto-reconnect
   useEffect(() => {
@@ -193,16 +203,61 @@ export default function App({ baseUrl }: Props) {
 
     let stopped = false
     let timer: ReturnType<typeof setTimeout> | null = null
+    // Compteur d'échecs de stream consécutifs : au-delà du seuil, on recrée
+    // la session (backend redémarré / session purgée) au lieu de boucler.
+    let consecutiveFailures = 0
+    const MAX_CONSECUTIVE_FAILURES = 3
+
+    const recreateSession = async (restart: () => void) => {
+      if (stopped) return
+      const probe = connectSession(baseUrl, '__probe__')
+      const sid = await probe.createSession()
+      probe.close()
+      if (stopped || !sid) {
+        if (!stopped) {
+          // Backend injoignable : on réessaie plus tard (backoff), sans boucle
+          // chaude — le backend peut redémarrer.
+          setLines((prev) => pushLine(prev, { type: 'info', message: 'backend injoignable, nouvelle tentative…' }))
+          timer = setTimeout(restart, 3000)
+        }
+        return
+      }
+      // Session neuve : on rebranche l'API et on repart sur un écran propre.
+      setSessionId(sid)
+      const fresh = connectSession(baseUrl, sid)
+      apiRef.current = fresh
+      setLines([])
+      setReady(true)
+      // startStream utilise apiRef.current — relancer le flux directement.
+      restart()
+    }
 
     const startStream = () => {
       if (stopped) return
-      api.streamEvents(
+      // Lire apiRef.current à CHAQUE appel : après recréation de session,
+      // c'est une nouvelle API (nouveau sessionId) — startStream doit
+      // brancher le flux sur la bonne session.
+      const current = apiRef.current
+      if (!current) return
+      current.streamEvents(
         (ev) => {
           if (ev.type === 'clear') {
             // /clear : vide l'écran (événement consommé, non affiché).
             setLines([])
             return
           }
+          // Session morte côté backend : on ne reconnecte pas en boucle, on
+          // recrée une session neuve (évite le spam « session not found »).
+          if (ev.type === 'error' && ev.message.includes('session not found')) {
+            consecutiveFailures += 1
+            setBusy(false)
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES && !stopped) {
+              setLines((prev) => pushLine(prev, { type: 'info', message: 'session expirée — recréation…' }))
+              void recreateSession(() => startStream())
+            }
+            return
+          }
+          consecutiveFailures = 0
           // done/aborted sont poussés dans lines : invisibles à l'écran
           // (EventLine → null) mais ils scindent les tours successifs —
           // sans eux, le chunk assistant suivant fusionnerait avec le bloc
@@ -212,8 +267,11 @@ export default function App({ baseUrl }: Props) {
           if (ev.type === 'done' || ev.type === 'error' || ev.type === 'aborted') setBusy(false)
         },
         () => {
+          // Ne PAS remettre busy à false ici : le backend peut encore être
+          // occupé pendant une reconnexion (blip réseau) — remettre busy à
+          // false ferait croire au TUI qu'il peut envoyer, et le message
+          // serait refusé + le texte effacé.
           setLines((prev) => pushLine(prev, { type: 'info', message: 'stream fermé, reconnexion…' }))
-          setBusy(false)
           // Reconnexion automatique (backoff léger) tant que la session vit.
           if (!stopped) {
             timer = setTimeout(startStream, 1000)
@@ -228,7 +286,7 @@ export default function App({ baseUrl }: Props) {
       if (timer) clearTimeout(timer)
       api.close()
     }
-  }, [ready, apiRef])
+  }, [ready, apiRef, baseUrl])
 
   // Ctrl+C : abandonne la réponse en cours, puis quitte au second appui.
   useInput((_input, key) => {
@@ -245,10 +303,20 @@ export default function App({ baseUrl }: Props) {
   const handleSubmit = async (value: string) => {
     const api = apiRef.current
     if (!api || busy) return
+    // Garde locale : Enter seul (ou espaces) n'est pas un message — évite un
+    // aller-retour réseau pour un refus backend, et un faux diagnostic.
+    const trimmed = value.trim()
+    if (!trimmed) return
     setBusy(true)
-    const ok = await api.sendMessage(value)
-    setInputValue('') // vide le champ immédiatement (même si refusé : le texte est dans l'historique)
-    if (!ok) {
+    const ok = await api.sendMessage(trimmed)
+    if (ok) {
+      // Envoyé : le champ se vide. Le texte reste dans l'historique écran
+      // (echo user émis par le backend).
+      setInputValue('')
+    } else {
+      // Refusé (session occupée / réseau) : on GARDE le texte dans le champ —
+      // le backend n'émet l'echo user qu'en cas d'acceptation, le texte
+      // serait sinon perdu.
       setLines((prev) => pushLine(prev, { type: 'error', message: 'message refusé (session occupée ?)' }))
       setBusy(false)
     }

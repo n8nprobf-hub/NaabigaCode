@@ -189,19 +189,7 @@ from _agent_mixins import (
 # Persistence must mirror that, otherwise an append-only flush can commit them
 # to the session store and a resumed session replays synthetic "(empty)"/nudge
 # turns as if they were genuine context.
-_EPHEMERAL_SCAFFOLDING_FLAGS = (
-    "_empty_recovery_synthetic",
-    "_empty_terminal_sentinel",
-    "_thinking_prefill",
-    # verify-on-stop and pre_verify nudges append a synthetic assistant
-    # "done" plus a synthetic user nudge to keep the agent going one more
-    # turn before it can claim completion. Those messages exist only to
-    # drive the verification loop; persisting them poisons the resumed
-    # transcript and breaks prompt-prefix cache reuse on later turns. (#55733)
-    "_verification_stop_synthetic",
-    "_pre_verify_synthetic",
-)
-_MAX_TOOL_WORKERS = 8
+
 
 # Intrinsic marker stamped on a message dict once it has been written to the
 # SQLite session store.  Used by ``_flush_messages_to_session_db`` to decide
@@ -215,7 +203,7 @@ _MAX_TOOL_WORKERS = 8
 # (agent/transports/chat_completions.py, agent/chat_completion_helpers.py) strip
 # every top-level ``_``-prefixed key before the request leaves the process, so
 # this never reaches a strict OpenAI-compatible gateway.
-_DB_PERSISTED_MARKER = "_db_persisted"
+
 
 
 # Guard so the OpenRouter metadata pre-warm thread is only spawned once per
@@ -234,7 +222,7 @@ _openrouter_prewarm_done = threading.Event()
 # Extracted as a module-level helper so both __init__ and
 # _apply_client_headers_for_base_url can share it.
 # =========================================================================
-_QWEN_CODE_VERSION = "0.14.1"
+
 def _pool_may_recover_from_rate_limit(pool) -> bool:
     """Decide whether to wait for credential-pool rotation instead of falling back.
 

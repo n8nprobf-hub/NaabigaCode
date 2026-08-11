@@ -16,17 +16,6 @@ from typing import Dict, List, Optional, Set, Any
 logger = logging.getLogger(__name__)
 
 
-def _redact_telegram_error_text(error: object) -> str:
-    """Redact secrets from Telegram transport errors before logging or returning them."""
-    text = "" if error is None else str(error)
-    if not text:
-        return text
-    try:
-        from agent.redact import redact_sensitive_text
-
-        return redact_sensitive_text(text, force=True)
-    except Exception:
-        return "<telegram error redacted>"
 
 
 try:
@@ -155,52 +144,14 @@ def check_telegram_requirements() -> bool:
 
 # Matches every character that MarkdownV2 requires to be backslash-escaped
 # when it appears outside a code span or fenced code block.
-_MDV2_ESCAPE_RE = re.compile(r'([_*\[\]()~`>#\+\-=|{}.!\\])')
 
 
-def _escape_mdv2(text: str) -> str:
-    """Escape Telegram MarkdownV2 special characters with a preceding backslash."""
-    return _MDV2_ESCAPE_RE.sub(r'\\\1', text)
 
 
-def _strip_mdv2(text: str) -> str:
-    """Strip MarkdownV2 escape backslashes to produce clean plain text.
-
-    Also removes MarkdownV2 formatting markers so the fallback
-    doesn't show stray syntax characters from format_message conversion.
-    """
-    # Remove escape backslashes before special characters
-    cleaned = re.sub(r'\\([_*\[\]()~`>#\+\-=|{}.!\\])', r'\1', text)
-    # Remove standard markdown bold (**text** → text) BEFORE MarkdownV2 bold
-    cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned)
-    # Remove MarkdownV2 bold markers that format_message converted from **bold**
-    cleaned = re.sub(r'\*([^*]+)\*', r'\1', cleaned)
-    # Remove MarkdownV2 italic markers that format_message converted from *italic*
-    # Use word boundary (\b) to avoid breaking snake_case like my_variable_name
-    cleaned = re.sub(r'(?<!\w)_([^_]+)_(?!\w)', r'\1', cleaned)
-    # Remove MarkdownV2 strikethrough markers (~text~ → text)
-    cleaned = re.sub(r'~([^~]+)~', r'\1', cleaned)
-    # Remove MarkdownV2 spoiler markers (||text|| → text)
-    cleaned = re.sub(r'\|\|([^|]+)\|\|', r'\1', cleaned)
-    return cleaned
 
 
-_CHUNK_INDICATOR_ON_FENCE_RE = re.compile(
-    r'(?m)^``` (?P<indicator>(?:\\)?\(\d+/\d+(?:\\)?\))$'
-)
 
 
-def _separate_chunk_indicator_from_fence(text: str) -> str:
-    """Move ``(N/M)`` chunk markers off Telegram code-fence lines.
-
-    ``truncate_message()`` appends chunk indicators to the end of a chunk. When
-    the chunk had to close an in-progress fenced code block, that creates a
-    line like ````` \\(1/2\\)`` after MarkdownV2 escaping. Telegram does not
-    treat that as a clean closing fence, so it can reject MarkdownV2 and fall
-    back to plain text. Put the indicator on its own line immediately after the
-    closing fence.
-    """
-    return _CHUNK_INDICATOR_ON_FENCE_RE.sub(r'```\n\g<indicator>', text)
 
 
 # ---------------------------------------------------------------------------
@@ -222,44 +173,8 @@ def _separate_chunk_indicator_from_fence(text: str) -> str:
 # (a header row, a delimiter row of dashes/pipes, then any pipe data rows).
 # Telegram renders both natively, so injecting Markdown hard breaks inside them
 # would corrupt the code block / table.
-_RICH_PROTECTED_REGION_RE = re.compile(
-    r'(?:```[^\n]*\n[\s\S]*?```)'                       # fenced code block
-    r'|(?:^[^\n]*\|[^\n]*\n'                            # table header row (has a pipe)
-    r'[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*'  # delimiter
-    r'(?:\n[^\n]*\|[^\n]*)*)',                          # data rows (newline-led, trailing \n left for prose)
-    re.MULTILINE,
-)
 
 
-def _rich_normalize_linebreaks(text: str) -> str:
-    """Convert single ``\\n`` to Markdown hard breaks for the rich-message path.
-
-    Standard Markdown treats a lone ``\\n`` as whitespace (soft break), so
-    Bot API 10.1 ``sendRichMessage`` collapses multi-line content — e.g.
-    slash-command lists joined with ``"\\n".join(lines)`` — into a single
-    paragraph.  Adding two trailing spaces before each single newline
-    forces a hard line break (``<br>``) in the rendered output.
-
-    Paragraph breaks (``\\n\\n``), fenced code blocks, and GFM pipe-table
-    blocks are left untouched: tables render natively in the rich path and a
-    hard break injected into a row separator would corrupt the table.
-    """
-    if not text or '\n' not in text:
-        return text
-
-    out: list[str] = []
-    # Split off protected regions (fenced code OR table blocks) and only inject
-    # hard breaks in the prose between them. Boundary newlines are handled by
-    # the original single-\n regex, which sees each prose run as a whole string.
-    pos = 0
-    for m in _RICH_PROTECTED_REGION_RE.finditer(text):
-        prose = text[pos:m.start()]
-        out.append(re.sub(r'(?<!\n)\n(?!\n)', '  \n', prose))
-        out.append(m.group(0))  # protected region kept verbatim
-        pos = m.end()
-    tail = text[pos:]
-    out.append(re.sub(r'(?<!\n)\n(?!\n)', '  \n', tail))
-    return ''.join(out)
 
 
 # Watchdog bound for `await updater.stop()`. When the underlying TCP socket is
@@ -280,6 +195,22 @@ _UPDATER_START_TIMEOUT = 30.0
 # module) — see _telegram_mixins.py. Import BEFORE the class so the
 # inheritance list below resolves; the mixins import nothing from
 # adapter.py, so no cycle.
+
+# Helpers/constantes partagés — source de vérité dans _telegram_mixins.
+# Ré-exportés ici : des modules externes (tools/send_message_tool.py)
+# importent _strip_mdv2/_escape_mdv2 depuis adapter. # noqa: F401 = les noms
+# sont importés pour l'API publique du module, pas pour un usage local.
+from plugins.platforms.telegram._telegram_mixins import (  # noqa: F401
+    _MDV2_ESCAPE_RE,
+    _CHUNK_INDICATOR_ON_FENCE_RE,
+    _RICH_PROTECTED_REGION_RE,
+    _escape_mdv2,
+    _strip_mdv2,
+    _separate_chunk_indicator_from_fence,
+    _rich_normalize_linebreaks,
+    _redact_telegram_error_text,
+)
+
 from plugins.platforms.telegram._telegram_mixins import (
     _TelegramAuthMixin,
     _TelegramCallbackMixin,

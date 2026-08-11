@@ -69,8 +69,11 @@ function waitForBackend(url: string, timeoutMs = 20000): Promise<boolean> {
 async function main() {
   const args = process.argv.slice(2)
   const explicitUrlIdx = args.indexOf('--backend-url')
+  const resumeIdx = args.indexOf('--resume')
   let baseUrl = BACKEND_URL
   let backendProc: ReturnType<typeof spawn> | null = null
+  // --resume <session_id> : reprend une session existante au lieu d'en créer.
+  const resumeSessionId = resumeIdx !== -1 && args[resumeIdx + 1] ? args[resumeIdx + 1] : undefined
 
   if (explicitUrlIdx !== -1 && args[explicitUrlIdx + 1]) {
     baseUrl = args[explicitUrlIdx + 1]
@@ -103,7 +106,10 @@ async function main() {
     process.exit(1)
   }
 
-  const { waitUntilExit } = render(<App baseUrl={baseUrl} />)
+  // exitOnCtrlC:false — le handler useInput d'App.tsx gère Ctrl+C (abort si
+  // busy, exit au 2e appui). Sans cette option, Ink v6 quitte immédiatement
+  // au 1er Ctrl+C et tue le backend en plein tour LLM.
+  const { waitUntilExit } = render(<App baseUrl={baseUrl} initialSessionId={resumeSessionId} />, { exitOnCtrlC: false })
   try {
     await waitUntilExit()
   } finally {

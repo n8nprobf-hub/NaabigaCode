@@ -252,6 +252,45 @@ def test_slash_retry_after_command_replays_real_message(client):
     assert not any("re: /help" in t for t in texts), texts
 
 
+def test_abort_stops_turn(client, monkeypatch):
+    """/abort pendant un tour : le wrapper _abortable_emit coupe l'émission
+    suivante → événement aborted (pas de deltas après l'annulation)."""
+    sid = client.post("/session/create").json()["session_id"]
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+
+    # Stub lent : émet un delta puis attend (le tour reste busy).
+    class SlowBridge:
+        async def run_turn_async(self, session_id, user_message, emit, **kwargs):
+            emit({"type": "assistant", "text": "delta1"})
+            import asyncio
+            await asyncio.sleep(2)
+
+    monkeypatch.setitem(sys.modules, "agent_bridge", SlowBridge())
+
+    client.post(f"/session/{sid}/message", json={"message": "lent"})
+    deadline = time.time() + 5
+    while not any(e.get("type") == "assistant" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    # Annulation : le prochain emit (ici la fin du tour) déclenchera
+    # _AbortTurn → aborted.
+    r = client.post(f"/session/{sid}/abort")
+    assert r.json() == {"aborted": True}
+
+    deadline = time.time() + 5
+    while not any(e.get("type") == "aborted" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+    session.queue.clear()
+    # Après l'abort, le tour émet aborted + done et libère busy.
+    deadline = time.time() + 5
+    while session.busy and time.time() < deadline:
+        time.sleep(0.02)
+    assert not session.busy
+    # La file post-abort ne contient plus de delta assistant.
+    assert not any(e.get("type") == "assistant" for e in session.queue)
+
+
 def test_purge_expired_sessions(client):
     """La purge supprime les sessions inactives mais pas les actives."""
     module = importlib.import_module("main")
