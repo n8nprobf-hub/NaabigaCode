@@ -222,6 +222,36 @@ def test_slash_history_uses_stable_history(client):
     assert any("user: premier" in t for t in texts), texts
 
 
+def test_slash_retry_after_command_replays_real_message(client):
+    """/retry après une commande slash consumée rejoue le DERNIER VRAI message
+    (pas la commande) — régression du cas limite trouvé en review."""
+    sid = client.post("/session/create").json()["session_id"]
+    client.post(f"/session/{sid}/message", json={"message": "vraie question"})
+    module = importlib.import_module("main")
+    session = module.sessions[sid]
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+    session.queue.clear()
+
+    # /help : commande consumée, marquée "command" dans l'historique
+    client.post(f"/session/{sid}/message", json={"message": "/help"})
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+    session.queue.clear()
+
+    # /retry : doit rejouer "vraie question", PAS "/help"
+    client.post(f"/session/{sid}/message", json={"message": "/retry"})
+    deadline = time.time() + 5
+    while not any(e.get("type") == "done" for e in session.queue) and time.time() < deadline:
+        time.sleep(0.02)
+
+    texts = [str(e.get("text") or e.get("message") or "") for e in session.queue]
+    assert any("re: vraie question" in t for t in texts), texts
+    assert not any("re: /help" in t for t in texts), texts
+
+
 def test_purge_expired_sessions(client):
     """La purge supprime les sessions inactives mais pas les actives."""
     module = importlib.import_module("main")

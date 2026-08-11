@@ -206,6 +206,19 @@ async def session_history(session_id: str) -> Dict[str, Any]:
 
 
 # ── Agent loop adapter ───────────────────────────────────────────────
+def _mark_slash_command(session: Any, user_message: str) -> None:
+    """Marque l'événement user courant comme commande slash dans l'historique.
+
+    /retry et le replay d'historique doivent ignorer les commandes slash
+    (ce ne sont pas de vrais messages utilisateur à rejouer). L'événement
+    a déjà été émis par send_message ; on le retrouve par son texte.
+    """
+    for ev in reversed(getattr(session, "history", []) or []):
+        if ev.get("type") == "user" and ev.get("text") == user_message:
+            ev["command"] = True
+            break
+
+
 async def _run_turn(session: Session, user_message: str) -> None:
     try:
         # 1. Commandes slash : interception AVANT tout appel LLM.
@@ -222,14 +235,20 @@ async def _run_turn(session: Session, user_message: str) -> None:
             slash_action = None
 
         if slash_action == "consumed":
+            # Marque l'événement user courant comme commande slash : /retry
+            # (et le replay d'historique) doit l'ignorer — ce n'est pas un
+            # vrai message utilisateur à rejouer.
+            _mark_slash_command(session, user_message)
             return
         if slash_action == "rerun":
-            # /retry : rejoue le dernier message utilisateur en tour LLM
-            # normal. On cherche dans l'HISTORIQUE STABLE (session.history)
-            # en excluant le message courant «/retry» — la queue est
-            # consommée par le SSE et contient /retry comme dernier «user».
+            _mark_slash_command(session, user_message)
+            # /retry : rejoue le dernier VRAI message utilisateur en tour
+            # LLM normal. On cherche dans l'HISTORIQUE STABLE
+            # (session.history) en ignorant les commandes slash — la queue
+            # est consommée par le SSE et contient /retry comme dernier
+            # «user».
             for ev in reversed(getattr(session, "history", list(session.queue))):
-                if ev.get("type") == "user" and ev.get("text", "") != user_message:
+                if ev.get("type") == "user" and not ev.get("command"):
                     user_message = ev.get("text", "")
                     break
 

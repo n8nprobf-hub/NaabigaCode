@@ -47,11 +47,6 @@ _NOT_AVAILABLE_TUI = {
 }
 
 
-def _snapshot_events(session: Any) -> List[Dict[str, Any]]:
-    """Copie plate de la file d'événements de la session."""
-    return list(getattr(session, "queue", []) or [])
-
-
 def _stable_history(session: Any) -> List[Dict[str, Any]]:
     """Événements stables de la session (rejouables).
 
@@ -66,14 +61,20 @@ def _stable_history(session: Any) -> List[Dict[str, Any]]:
 
 
 def _last_user_text(session: Any, exclude: Optional[str] = None) -> Optional[str]:
-    """Dernier message utilisateur de la session (pour /retry).
+    """Dernier VRAI message utilisateur de la session (pour /retry).
 
     Cherche dans l'historique STABLE (pas la queue, consommée par le SSE) et
-    ignore *exclude* — le message courant ``/retry`` est lui-même émis comme
-    événement ``user`` avant le dispatch, il ne doit pas être la cible.
+    ignore :
+    - *exclude* — le message courant ``/retry`` est lui-même émis comme
+      événement ``user`` avant le dispatch ;
+    - les événements marqués ``command`` (main.py les flague après une
+      commande slash consumée) — /retry après /help, /clear, /status…
+      doit rejouer le dernier vrai message, pas la commande slash.
     """
     for ev in reversed(_stable_history(session)):
         if ev.get("type") != "user":
+            continue
+        if ev.get("command"):
             continue
         text = ev.get("text", "")
         if exclude is not None and text == exclude:

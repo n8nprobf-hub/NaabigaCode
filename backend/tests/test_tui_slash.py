@@ -24,22 +24,30 @@ from tui_slash import handle_slash, _last_user_text  # noqa: E402
 
 
 class StubSession:
-    """Mini session compatible avec le contrat attendu par handle_slash."""
+    """Mini session compatible avec le contrat attendu par handle_slash.
+
+    Reproduit fidèlement Session réelle : emit() alimente queue ET history
+    (les transitoires done/aborted exclus) — c'est la branche history que
+    /history et /retry empruntent en production.
+    """
 
     def __init__(self) -> None:
         self.id = "test1234abcd"
         self.created_at = time.time()
         self.queue = []
+        self.history = []
         self.busy = False
 
     def emit(self, ev) -> None:
+        if ev.get("type") not in ("done", "aborted"):
+            self.history.append(ev)
         self.queue.append(ev)
 
 
 @pytest.fixture()
 def session():
     s = StubSession()
-    s.queue.append({"type": "user", "text": "bonjour, que fais-tu ?"})
+    s.emit({"type": "user", "text": "bonjour, que fais-tu ?"})
     return s
 
 
@@ -130,6 +138,29 @@ def test_reset_alias_consumed(session):
 
 def test_last_user_text_helper():
     s = StubSession()
-    s.queue.append({"type": "user", "text": "dernier"})
-    s.queue.append({"type": "assistant", "text": "réponse"})
+    s.emit({"type": "user", "text": "dernier"})
+    s.emit({"type": "assistant", "text": "réponse"})
     assert _last_user_text(s) == "dernier"
+
+
+def test_last_user_text_skips_command_marked():
+    """Les événements user marqués command (slash consumée) sont ignorés."""
+    s = StubSession()
+    s.history.append({"type": "user", "text": "vrai message"})
+    s.history.append({"type": "user", "text": "/help", "command": True})
+    assert _last_user_text(s) == "vrai message"
+
+
+def test_retry_after_slash_command_targets_real_message():
+    """/retry après /help (command marquée) rejoue le DERNIER VRAI message.
+
+    Régression du fix 1686ef1 : /retry cherchait le dernier user de
+    l'historique sans exclure les commandes slash consumées — /help puis
+    /retry rejouait «/help» comme prompt LLM.
+    """
+    s = StubSession()
+    s.history.append({"type": "user", "text": "explique le projet"})
+    s.history.append({"type": "assistant", "text": "réponse 1"})
+    s.history.append({"type": "user", "text": "/help", "command": True})
+    s.history.append({"type": "assistant", "text": "aide affichée"})
+    assert _last_user_text(s, exclude="/retry") == "explique le projet"
