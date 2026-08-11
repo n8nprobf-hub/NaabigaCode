@@ -58,21 +58,19 @@ iex (irm https://naabigaCode.iconedor.com/install.ps1)
 
 > Les URLs `naabigaCode.iconedor.com` pointent vers les mêmes scripts sur
 > GitHub (`raw.githubusercontent.com/n8nprobf-hub/NaabigaCode/main/scripts/`).
-> L'installateur détecte Node.js, tente `npm install -g naabiga-cli`, puis
+> L'installateur détecte Node.js, tente `npm install -g naabigacode`, puis
 > retombe sur le tarball officiel de la release GitHub. Il crée le venv
 > Python et installe les dépendances automatiquement.
 
-> **Statut npm :** le package n'est pas encore publié sur le registry npm.
-> L'installation officielle passe par le tarball GitHub (release `v0.2.0`),
-> géré automatiquement par l'installateur ci-dessus. La commande npm
-> ci-dessous ne fonctionnera que lorsque la publication sera faite.
-
-**Ou via npm (une fois publié sur le registry) :**
+**Ou via npm (publié sur le registry) :**
 
 ```bash
-npm install -g naabiga-cli   # puis : naabiga
-npx naabiga-cli              # sans installation
+npm install -g naabigacode   # puis : naabiga
+npx naabigacode              # sans installation
 ```
+
+> L'installation npm télécharge automatiquement le backend Python dans
+> `~/.naabiga/backend` (venv + dépendances) — aucune autre commande nécessaire.
 
 ### Backend (Python)
 

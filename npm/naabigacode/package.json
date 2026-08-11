@@ -1,0 +1,41 @@
+{
+  "name": "naabigacode",
+  "version": "0.1.0",
+  "description": "NaabigaCode — agentic coding en terminal (TUI style Claude Code + backend Python). Installation one-shot : backend auto-installé dans ~/.naabiga.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ICONEDOR SARL (Naabiga)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n8nprobf-hub/NaabigaCode.git"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "tui",
+    "terminal",
+    "react",
+    "ink",
+    "naabiga",
+    "naabigacode",
+    "coding"
+  ],
+  "files": [
+    "cli.mjs",
+    "scripts",
+    "README.md"
+  ],
+  "bin": {
+    "naabiga": "./cli.mjs"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install-backend.mjs"
+  },
+  "dependencies": {
+    "naabigacode-frontend": "^0.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
