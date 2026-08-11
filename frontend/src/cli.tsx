@@ -22,9 +22,33 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const BACKEND_URL = process.env.NAABIGA_BACKEND_URL ?? 'http://127.0.0.1:8400'
 
 function resolveBackendCommand(): { cmd: string; args: string[] } | null {
-  const root = join(__dirname, '..', '..')
-  const mainPy = join(root, 'backend', 'main.py')
+  // Chemins candidats pour backend/main.py, par priorité :
+  // 1. NAABIGA_BACKEND_MAIN (variable d'env explicite — install npm)
+  // 2. repo cloné local (dev) : on remonte depuis dist/ jusqu'à trouver
+  //    backend/main.py (couvre frontend/dist → racine du repo)
+  // 3. ~/.naabiga/backend/main.py (installation utilisateur)
+  const explicit = process.env.NAABIGA_BACKEND_MAIN
+  const candidates: string[] = []
+  if (explicit) candidates.push(explicit)
+  let dir = __dirname
+  for (let i = 0; i < 6; i++) {
+    const probe = join(dir, 'backend', 'main.py')
+    if (existsSync(probe)) {
+      candidates.push(probe)
+      break
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  candidates.push(join(process.env.HOME || '', '.naabiga', 'backend', 'main.py'))
+
+  const mainPy = candidates.find((p) => existsSync(p))
+  if (!mainPy) return null
+
   // Chemins venv selon la plateforme : bin/ (Unix), Scripts/ (Windows).
+  // mainPy = <root>/backend/main.py → root = parent du dossier backend.
+  const root = dirname(dirname(mainPy))
   const venvCandidates = [
     join(root, 'backend', '.venv', 'bin', 'python'),
     join(root, 'backend', '.venv', 'Scripts', 'python.exe'),

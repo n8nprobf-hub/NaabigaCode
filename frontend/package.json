@@ -1,16 +1,38 @@
 {
   "name": "naabigacode-frontend",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.2.1",
+  "description": "TUI React/Ink style Claude Code pour NaabigaCode — agentic coding en terminal",
+  "private": false,
   "type": "module",
   "license": "MIT",
+  "author": "ICONEDOR SARL (Naabiga)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n8nprobf-hub/NaabigaCode.git"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "tui",
+    "terminal",
+    "react",
+    "ink",
+    "naabiga",
+    "coding"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "bin": {
-    "naabiga": "./dist/cli.mjs"
+    "naabiga": "dist/cli.mjs"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "tsx src/cli.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
   },
   "dependencies": {
     "@types/node": "^22.20.1",
