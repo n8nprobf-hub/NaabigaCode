@@ -3,13 +3,28 @@
 Re-exports the Naabiga config layer under the upstream Hermes names,
 plus the handful of symbols the gateway needs that Naabiga renamed
 (``get_hermes_home``) or that live upstream only (``_is_ssh_remote_tilde_cwd``).
+
+⚠️ Les ré-exports portent ``# noqa: F401`` — ils sont utilisés par le
+gateway vendu (gateway/*), pas par ce fichier lui-même. Ne pas laisser
+``ruff --fix`` les supprimer.
 """
 
-from naabiga_cli.config import (
+from naabiga_cli.config import (  # noqa: F401 — ré-exports pour gateway vendu
+    DEFAULT_CONFIG,
+    atomic_config_write,
+    cfg_get,
+    clear_model_endpoint_credentials,
+    get_compatible_custom_providers,
+    get_custom_provider_context_length,
     get_config_path,
+    get_env_value,
+    get_naabiga_home,
+    load_config,
+    save_config,
 )
 from utils import fast_safe_load
 
+from hermes_constants import get_hermes_home  # noqa: F401 — ré-export pour gateway vendu
 
 
 def read_user_config_raw(config_path=None) -> dict:
