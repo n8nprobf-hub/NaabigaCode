@@ -1,54 +1,105 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput } from 'ink'
 import Gradient from 'ink-gradient'
-import BigText from 'ink-big-text'
 import Spinner from 'ink-spinner'
 import TextInput from 'ink-text-input'
 import { connectSession } from './sessionApi'
 import type { SessionApi, SessionEvent } from './sessionApi'
 
+// ── Palette Claude Code ────────────────────────────────────────────────
+// Tool calls : nom coloré par famille + entrée/sortie en dim, comme le
+// terminal Claude Code (Bash=bleu, Read=vert, Edit=jaune, Web=cyan…).
+const TOOL_COLORS: Record<string, string> = {
+  bash: 'blue',
+  exec: 'blue',
+  terminal: 'blue',
+  run: 'blue',
+  read_file: 'green',
+  read: 'green',
+  search_files: 'green',
+  grep: 'green',
+  edit: 'yellow',
+  patch: 'yellow',
+  write_file: 'yellow',
+  write: 'yellow',
+  browser: 'cyan',
+  web: 'cyan',
+  navigate: 'cyan',
+}
+function toolColor(name: string): string {
+  const lower = name.toLowerCase()
+  for (const [key, color] of Object.entries(TOOL_COLORS)) {
+    if (lower.includes(key)) return color
+  }
+  return 'magenta'
+}
+
+// Tronque une valeur JSON pour l'afficher sur une ligne (comme le
+// «+N lines» de Claude Code : on montre le début, on coupe le reste).
+function truncate(value: unknown, max = 120): string {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value)
+  if (!raw) return ''
+  const oneLine = raw.replace(/\s+/g, ' ').trim()
+  return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine
+}
+
 function EventLine({ event }: { event: SessionEvent }) {
   switch (event.type) {
     case 'user':
+      // Message utilisateur en texte clair, comme Claude Code.
       return (
         <Box>
-          <Text color="cyan">❯ </Text>
           <Text>{event.text}</Text>
         </Box>
       )
     case 'assistant':
-      return <Text>{event.text}</Text>
-    case 'thinking':
+      // Réponse assistant en blanc, streaming fusionné.
       return (
         <Box>
-          <Text color="yellow">
+          <Text color="#e8b872">● </Text>
+          <Text>{event.text}</Text>
+        </Box>
+      )
+    case 'thinking':
+      // «● Thinking…» en dim + détail, comme le mode think de Claude.
+      return (
+        <Box>
+          <Text color="magenta" dimColor>
             <Spinner type="dots" /> thinking
           </Text>
           {event.text ? <Text color="gray"> — {event.text}</Text> : null}
         </Box>
       )
     case 'tool':
+      // Carte compacte : nom coloré + entrée dim sur la même ligne,
+      // sortie dim tronquée dessous — l'affichage «✳ Bash: cmd» de CC.
       return (
         <Box flexDirection="column">
-          <Text color="magenta">[tool] {event.name}</Text>
-          {event.input !== undefined ? (
-            <Text color="gray">in: {JSON.stringify(event.input)}</Text>
-          ) : null}
+          <Box>
+            <Text color={toolColor(event.name)} bold>
+              ✳ {event.name}
+            </Text>
+            {event.input !== undefined ? (
+              <Text color="gray"> {truncate(event.input)}</Text>
+            ) : null}
+          </Box>
           {event.output !== undefined ? (
-            <Text color="gray">out: {JSON.stringify(event.output)}</Text>
+            <Text color="gray" dimColor>
+              └ {truncate(event.output, 200)}
+            </Text>
           ) : null}
         </Box>
       )
     case 'error':
-      return <Text color="red">error: {event.message}</Text>
+      return <Text color="red">✕ {event.message}</Text>
     case 'info':
-      return <Text color="blue">info: {event.message}</Text>
+      return <Text color="blue" dimColor>{event.message}</Text>
     case 'done':
       return null
     case 'clear':
       return null
     case 'aborted':
-      return <Text color="red">[aborted]</Text>
+      return <Text color="red" dimColor>✕ aborted</Text>
     default:
       return null
   }
@@ -58,7 +109,7 @@ interface Props {
   baseUrl: string
 }
 
-// Nombre max d'événements conservés à l'écran (anti fuite mémoire sur
+// Nombre max d'événements conservés à l'écran (anti-fuite mémoire sur
 // les longues sessions).
 const MAX_LINES = 200
 // Nombre de tentatives + délai initial pour la création de session.
@@ -100,8 +151,9 @@ export default function App({ baseUrl }: Props) {
     let cancelled = false
     void (async () => {
       for (let attempt = 1; attempt <= CREATE_RETRIES; attempt++) {
-        const probe = connectSession(baseUrl, 'probe')
+        const probe = connectSession(baseUrl, '__probe__')
         const sid = await probe.createSession()
+        probe.close()
         if (cancelled) return
         if (sid) {
           setSessionId(sid)
@@ -121,11 +173,13 @@ export default function App({ baseUrl }: Props) {
           return
         }
         if (attempt < CREATE_RETRIES) {
-          setLines((prev) => pushLine(prev, { type: 'info', message: `backend pas prêt (tentative ${attempt}/${CREATE_RETRIES})…` }))
-          await new Promise((r) => setTimeout(r, CREATE_RETRY_DELAY_MS))
+          await new Promise((r) => setTimeout(r, CREATE_RETRY_DELAY_MS * attempt))
         }
       }
-      setLines((prev) => pushLine(prev, { type: 'error', message: `Backend injoignable sur ${baseUrl} après ${CREATE_RETRIES} tentatives` }))
+      if (!cancelled) {
+        setLines((prev) => pushLine(prev, { type: 'error', message: 'backend injoignable' }))
+        setReady(true)
+      }
     })()
     return () => {
       cancelled = true
@@ -167,19 +221,24 @@ export default function App({ baseUrl }: Props) {
         },
       )
     }
-
     startStream()
+
     return () => {
       stopped = true
       if (timer) clearTimeout(timer)
       api.close()
     }
-  }, [ready])
+  }, [ready, apiRef])
 
-  useInput((input, key) => {
-    if (key.ctrl && input.toLowerCase() === 'c') {
-      void apiRef.current?.abort()
-      exit()
+  // Ctrl+C : abandonne la réponse en cours, puis quitte au second appui.
+  useInput((_input, key) => {
+    if (key.ctrl && _input === 'c') {
+      if (busy) {
+        void apiRef.current?.abort()
+        setBusy(false)
+      } else {
+        exit()
+      }
     }
   })
 
@@ -196,47 +255,55 @@ export default function App({ baseUrl }: Props) {
   }
 
   return (
-    <Box flexDirection="column" minHeight="100%">
-      {!ready ? (
-        <Box justifyContent="center">
-          <Spinner type="dots" />
-          <Text color="gray"> initialisation de la session…</Text>
+    <Box flexDirection="column">
+      {/* Bandeau Claude Code : titre compact en dégradé orange + version */}
+      <Box flexDirection="column" marginBottom={1}>
+        <Box>
+          <Gradient name="atlas">
+            <Text bold>Naabiga Code</Text>
+          </Gradient>
+          <Text color="gray">  v0.2.0</Text>
         </Box>
-      ) : (
-        <Box flexDirection="column" flexGrow={1}>
-          <Box justifyContent="center" paddingY={1}>
-            <Gradient name="fruit">
-              <BigText text="NAABIGACODE" font="tiny" />
-            </Gradient>
-          </Box>
-          <Box paddingX={1}>
-            <Text color="gray" dimColor>
-              session {sessionId} — Ctrl+C pour quitter
-            </Text>
-          </Box>
-          <Box flexGrow={1} flexDirection="column" paddingX={1}>
-            {lines.map((ev, i) => (
-              <EventLine key={i} event={ev} />
-            ))}
-            {busy ? (
-              <Box>
-                <Text color="yellow">
-                  <Spinner type="dots" /> reasoning
-                </Text>
-              </Box>
-            ) : null}
-          </Box>
-          <Box>
-            <Text color="green">❯ </Text>
-            <TextInput
-              value={inputValue}
-              onChange={setInputValue}
-              onSubmit={handleSubmit}
-              placeholder="Ask anything…"
-            />
-          </Box>
+        <Text color="gray">
+          session {sessionId ?? '…'} · backend {baseUrl}
+        </Text>
+      </Box>
+
+      {/* Conversation */}
+      <Box flexDirection="column">
+        {lines.map((ev, i) => (
+          <EventLine key={i} event={ev} />
+        ))}
+      </Box>
+
+      {/* Statut (mode Claude Code : ligne d'état discrète) */}
+      <Box marginTop={1}>
+        {busy ? (
+          <Text color="green">
+            <Spinner type="dots" /> working…
+          </Text>
+        ) : ready ? (
+          <Text color="gray" dimColor>ready</Text>
+        ) : (
+          <Text color="yellow">
+            <Spinner type="dots" /> connecting…
+          </Text>
+        )}
+      </Box>
+
+      {/* Prompt : ligne de séparation + ❯ comme Claude Code */}
+      <Box marginTop={1} flexDirection="column">
+        <Text color="gray" dimColor>─</Text>
+        <Box>
+          <Text color="white" bold>❯ </Text>
+          <TextInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={handleSubmit}
+            placeholder="Ask anything…"
+          />
         </Box>
-      )}
+      </Box>
     </Box>
   )
 }

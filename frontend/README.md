@@ -67,6 +67,9 @@ scripts/build.mjs   # Bundle esbuild → dist/cli.mjs (packages externalisés)
 
 Comportements notables :
 
+- **Style Claude Code** : bandeau compact en dégradé, tool calls en cartes
+  colorées par famille (Bash=bleu, Read=vert, Edit=jaune…), prompt `❯` avec
+  séparateur, indicateur d'état discret.
 - **Streaming** : les morceaux `assistant` consécutifs sont fusionnés en un
   seul bloc (pas une ligne par chunk SSE).
 - **Reconnexion auto** : le stream SSE se reconnecte avec backoff léger tant
