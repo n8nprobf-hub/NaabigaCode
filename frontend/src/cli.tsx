@@ -15,6 +15,7 @@ import { render } from 'ink'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import App from './App'
 
@@ -45,7 +46,7 @@ function resolveBackendCommand(): { cmd: string; args: string[] } | null {
     if (parent === dir) break
     dir = parent
   }
-  candidates.push(join(process.env.HOME || '', '.naabiga', 'backend', 'main.py'))
+  candidates.push(join(homedir(), '.naabiga', 'backend', 'main.py'))
 
   const mainPy = candidates.find((p) => existsSync(p))
   if (!mainPy) return null
@@ -117,7 +118,7 @@ async function main() {
       env: {
         ...process.env,
         // Config Naabiga : NAABIGA_HOME explicite si fourni, sinon home utilisateur.
-        ...(process.env.NAABIGA_HOME ? {} : { NAABIGA_HOME: process.env.NAABIGA_HOME_NAABIGA ?? join(process.env.HOME || '', '.naabiga') }),
+        ...(process.env.NAABIGA_HOME ? {} : { NAABIGA_HOME: process.env.NAABIGA_HOME_NAABIGA ?? join(homedir(), '.naabiga') }),
       },
     })
     backendProc.stdout?.on('data', (d) => process.stderr.write(`[backend] ${d}`))

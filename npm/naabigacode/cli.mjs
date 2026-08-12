@@ -7,6 +7,7 @@
  * ~/.naabiga/backend/main.py, installé par le postinstall).
  */
 import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
 
 const require = createRequire(import.meta.url)
 
@@ -19,7 +20,9 @@ try {
   process.exit(1)
 }
 
-// import() direct avec le chemin absolu : Node gère les chemins Windows
-// (C:\...) et POSIX (/...). PAS de new URL('file://' + path) — sur Windows
-// ça casse avec ERR_UNSUPPORTED_ESM_URL_SCHEME (protocole 'c:').
-await import(cliPath)
+// pathToFileURL : LE convertisseur cross-platform correct.
+//   Windows : C:\Users\...  → file:///C:/Users/...
+//   POSIX   : /home/...     → file:///home/...
+// Ni import(chemin brut) (Windows : scheme 'c:' invalide) ni
+// new URL('file://' + chemin) (Windows : 'file://C:\' malformé) ne marchent.
+await import(pathToFileURL(cliPath))
