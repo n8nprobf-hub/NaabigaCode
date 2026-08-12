@@ -11,7 +11,7 @@
  * Le frontend (naabiga) résout ensuite NAABIGA_BACKEND_MAIN lui-même.
  */
 import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { tmpdir } from 'node:os'
@@ -19,8 +19,10 @@ import { tmpdir } from 'node:os'
 const HOME = process.env.NAABIGA_HOME || join(homedir(), '.naabiga')
 const BACKEND_DIR = join(HOME, 'backend')
 const MAIN_PY = join(BACKEND_DIR, 'main.py')
-// Pinned à un commit stable (pas de tag de release : on suit main).
-const SOURCE_URL = 'https://github.com/n8nprobf-hub/NaabigaCode/archive/refs/heads/main.tar.gz'
+// Source pinnée à un TAG de release (pas la branche main mouvante) :
+// reproductibilité + intégrité (le tarball GitHub d'un tag est immuable).
+const SOURCE_TAG = 'v0.3.0'
+const SOURCE_URL = `https://github.com/n8nprobf-hub/NaabigaCode/archive/refs/tags/${SOURCE_TAG}.tar.gz`
 
 function log(msg) {
   console.log(`[naabiga] ${msg}`)
@@ -48,12 +50,14 @@ async function main() {
     mkdirSync(extractDir, { recursive: true })
     run(`tar -xzf "${tarball}" -C "${extractDir}"`)
 
-    // 2. Copie du dossier backend/ (le tarball contient NaabigaCode-main/backend).
-    const srcRoot = join(extractDir, 'NaabigaCode-main')
-    const srcBackend = join(srcRoot, 'backend')
-    if (!existsSync(srcBackend)) {
-      throw new Error(`backend introuvable dans le tarball (${srcBackend})`)
+    // 2. Copie du dossier backend/ — le tarball extrait s'appelle
+    //    NaabigaCode-<tag> (ex: NaabigaCode-v0.3.0). On cherche le dossier
+    //    contenant backend/main.py de façon robuste (peu importe le préfixe).
+    const srcRoot = [...readdirSync(extractDir)].map((n) => join(extractDir, n)).find((p) => existsSync(join(p, 'backend', 'main.py')))
+    if (!srcRoot) {
+      throw new Error(`backend/main.py introuvable dans le tarball (extrait dans ${extractDir})`)
     }
+    const srcBackend = join(srcRoot, 'backend')
     run(`mkdir -p "${BACKEND_DIR}"`)
     // cp -a pour conserver les permissions/liens.
     run(`cp -a "${srcBackend}/." "${BACKEND_DIR}/"`)
