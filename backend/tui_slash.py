@@ -170,13 +170,16 @@ def handle_slash(
         return "consumed"
 
     if name == "retry":
-        last = _last_user_text(session)
+        last = _last_user_text(session, exclude=user_message)
         if not last:
             emit({"type": "info", "message": "aucun message à rejouer."})
             return "consumed"
         emit({"type": "info", "message": f"rejoue : {last}"})
         # On ré-émet le dernier vrai message comme prompt LLM.
-        emit({"type": "user", "text": last})
+        # IMPORTANT : on le marque comme commande pour que _run_turn ne le
+        # prenne pas pour un vrai message utilisateur à rejouer (sinon boucle
+        # infinie : /retry rejoue /retry rejoue /retry…).
+        emit({"type": "user", "text": last, "command": True})
         return "rerun"
 
     if name in ("session", "sessions"):

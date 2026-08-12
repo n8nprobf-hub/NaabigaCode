@@ -219,7 +219,7 @@ def test_slash_history_uses_stable_history(client):
         time.sleep(0.02)
 
     texts = [str(e.get("text") or e.get("message") or "") for e in session.queue]
-    assert any("user: premier" in t for t in texts), texts
+    assert any("vous : premier" in t for t in texts), texts
 
 
 def test_slash_retry_after_command_replays_real_message(client):
