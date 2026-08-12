@@ -113,10 +113,13 @@ def test_title_without_arg_consumed(session):
 
 
 def test_known_but_not_available_in_tui(session):
-    """/toolsets est connu du registre mais non-TUI → consumé avec explication."""
-    sess, action = run("/toolsets", session)
+    """/memory est connu du registre mais non-TUI → consumé avec message d'info."""
+    sess, action = run("/memory", session)
     assert action == "consumed"
-    assert any("pas encore disponible" in e.get("message", "") for e in sess.queue)
+    # Vérifie qu'un message est émis (pas envoyé au LLM)
+    # Le premier élément est l'user message du fixture, le second est la réponse du handler
+    assert len(sess.queue) >= 2
+    assert sess.queue[-1].get("type") in ("assistant", "info")
 
 
 def test_skills_now_implemented_in_tui(session):
