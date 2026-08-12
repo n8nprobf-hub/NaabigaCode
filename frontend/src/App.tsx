@@ -6,14 +6,14 @@ import TextInput from 'ink-text-input'
 import { connectSession } from './sessionApi'
 import type { SessionApi, SessionEvent } from './sessionApi'
 
-// ── Palette Claude Code ────────────────────────────────────────────────
-// Tool calls : nom coloré par famille + entrée/sortie en dim, comme le
-// terminal Claude Code (Bash=bleu, Read=vert, Edit=jaune, Web=cyan…).
+// ── Palette Claude Code (v2.x, conforme aux captures) ─────────────────
+// Tool calls : nom coloré par famille — Bash=rouge, Read=vert, Edit=jaune,
+// Web=bleu, défaut=magenta (comme le terminal Claude Code).
 const TOOL_COLORS: Record<string, string> = {
-  bash: 'blue',
-  exec: 'blue',
-  terminal: 'blue',
-  run: 'blue',
+  bash: 'red',
+  exec: 'red',
+  terminal: 'red',
+  run: 'red',
   read_file: 'green',
   read: 'green',
   search_files: 'green',
@@ -22,9 +22,9 @@ const TOOL_COLORS: Record<string, string> = {
   patch: 'yellow',
   write_file: 'yellow',
   write: 'yellow',
-  browser: 'cyan',
-  web: 'cyan',
-  navigate: 'cyan',
+  browser: 'blue',
+  web: 'blue',
+  navigate: 'blue',
 }
 function toolColor(name: string): string {
   const lower = name.toLowerCase()
@@ -53,10 +53,10 @@ function EventLine({ event }: { event: SessionEvent }) {
         </Box>
       )
     case 'assistant':
-      // Réponse assistant en blanc, streaming fusionné.
+      // Réponse assistant : pastille ● + texte clair (streaming fusionné).
       return (
         <Box>
-          <Text color="#e8b872">● </Text>
+          <Text color="gray">● </Text>
           <Text>{event.text}</Text>
         </Box>
       )
@@ -71,21 +71,23 @@ function EventLine({ event }: { event: SessionEvent }) {
         </Box>
       )
     case 'tool':
-      // Carte compacte : nom coloré + entrée dim sur la même ligne,
-      // sortie dim tronquée dessous — l'affichage «✳ Bash: cmd» de CC.
+      // Carte compacte type Claude Code : «● Bash(cmd)» — nom coloré
+      // + entrée entre parenthèses, sortie indentée ├── dans la couleur.
       return (
         <Box flexDirection="column">
           <Box>
             <Text color={toolColor(event.name)} bold>
-              ✳ {event.name}
+              ● {event.name}
             </Text>
             {event.input !== undefined ? (
-              <Text color="gray"> {truncate(event.input)}</Text>
+              <Text color={toolColor(event.name)} dimColor>
+                ({truncate(event.input, 110)})
+              </Text>
             ) : null}
           </Box>
           {event.output !== undefined ? (
-            <Text color="gray" dimColor>
-              └ {truncate(event.output, 200)}
+            <Text color={toolColor(event.name)} dimColor>
+              ├── {truncate(event.output, 160)}
             </Text>
           ) : null}
         </Box>
@@ -111,6 +113,9 @@ interface Props {
    *  créer une neuve. */
   initialSessionId?: string
 }
+
+// Version injectée par esbuild (define) — voir scripts/build.mjs.
+declare const VERSION: string
 
 // Nombre max d'événements conservés à l'écran (anti-fuite mémoire sur
 // les longues sessions).
@@ -355,18 +360,33 @@ export default function App({ baseUrl, initialSessionId }: Props) {
 
   return (
     <Box flexDirection="column">
-      {/* Bandeau Claude Code : titre compact en dégradé orange + version */}
-      <Box flexDirection="column" marginBottom={1}>
-        <Box>
+      {/* Boîte d'accueil (1er lancement) — style Claude Code : bordure
+          orange, message de bienvenue + commandes rapides + astuces. */}
+      {lines.length === 0 && ready ? (
+        <Box
+          borderStyle="round"
+          borderColor="#d97757"
+          flexDirection="column"
+          paddingX={1}
+          marginBottom={1}
+        >
+          <Text>* Welcome to NaabigaCode!</Text>
+          <Text dimColor>/help for help, /status for your current setup</Text>
+          <Text dimColor>session: {sessionId ?? '…'} · backend {baseUrl}</Text>
+          <Text> </Text>
+          <Text dimColor>Tips for getting started:</Text>
+          <Text dimColor>  1. Tapez votre demande ci-dessous, comme avec Claude Code</Text>
+          <Text dimColor>  2. /clear pour repartir de zéro · /sessions pour reprendre une conversation</Text>
+          <Text dimColor>  3. Ctrl+C interrompt la réponse en cours</Text>
+        </Box>
+      ) : (
+        <Box marginBottom={1}>
           <Gradient name="atlas">
             <Text bold>Naabiga Code</Text>
           </Gradient>
-          <Text color="gray">  v0.2.0</Text>
+          <Text color="gray">  {VERSION}</Text>
         </Box>
-        <Text color="gray">
-          session {sessionId ?? '…'} · backend {baseUrl}
-        </Text>
-      </Box>
+      )}
 
       {/* Conversation */}
       <Box flexDirection="column">
@@ -375,7 +395,7 @@ export default function App({ baseUrl, initialSessionId }: Props) {
         ))}
       </Box>
 
-      {/* Statut (mode Claude Code : ligne d'état discrète) */}
+      {/* Statut (ligne discrète, comme Claude Code) */}
       <Box marginTop={1}>
         {busy ? (
           <Text color="green">

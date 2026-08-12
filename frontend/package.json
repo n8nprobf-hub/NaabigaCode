@@ -1,6 +1,6 @@
 {
   "name": "naabigacode-frontend",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "TUI React/Ink style Claude Code pour NaabigaCode — agentic coding en terminal",
   "private": false,
   "type": "module",

@@ -14,6 +14,7 @@ import React from 'react'
 import { render } from 'ink'
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { createWriteStream } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -112,7 +113,8 @@ async function main() {
       console.error('[naabiga] backend Python introuvable — lancez "python3 backend/main.py" d\'abord')
       process.exit(1)
     }
-    console.error(`[naabiga] démarrage du backend : ${backend.cmd} ${backend.args.join(' ')}`)
+    // Note : le démarrage est silencieux — les logs backend vont dans
+    // ~/.naabiga/backend.log (--verbose pour les afficher en direct).
     backendProc = spawn(backend.cmd, backend.args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
@@ -121,10 +123,20 @@ async function main() {
         ...(process.env.NAABIGA_HOME ? {} : { NAABIGA_HOME: process.env.NAABIGA_HOME_NAABIGA ?? join(homedir(), '.naabiga') }),
       },
     })
-    backendProc.stdout?.on('data', (d) => process.stderr.write(`[backend] ${d}`))
-    backendProc.stderr?.on('data', (d) => process.stderr.write(`[backend] ${d}`))
+    // Logs backend → FICHIER (pas le terminal) : ils pollueraient le rendu
+    // de la TUI (log uvicorn toutes les requêtes). --verbose les affiche.
+    const verbose = args.includes('--verbose')
+    const logDir = process.env.NAABIGA_HOME ?? join(homedir(), '.naabiga')
+    const backendLog = createWriteStream(join(logDir, 'backend.log'), { flags: 'a' })
+    const pipeLog = (d: Buffer) => {
+      backendLog.write(d)
+      if (verbose) process.stderr.write(`[backend] ${d}`)
+    }
+    backendProc.stdout?.on('data', pipeLog)
+    backendProc.stderr?.on('data', pipeLog)
     backendProc.on('exit', (code) => {
-      if (code && code !== 0) process.stderr.write(`[naabiga] backend arrêté (code ${code})\n`)
+      backendLog.end()
+      if (code && code !== 0 && verbose) process.stderr.write(`[naabiga] backend arrêté (code ${code})\n`)
     })
   }
 
