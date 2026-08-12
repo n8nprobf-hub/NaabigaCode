@@ -113,10 +113,25 @@ def test_title_without_arg_consumed(session):
 
 
 def test_known_but_not_available_in_tui(session):
-    """/skills est connu du registre mais non-TUI → consumé avec explication."""
-    sess, action = run("/skills", session)
+    """/toolsets est connu du registre mais non-TUI → consumé avec explication."""
+    sess, action = run("/toolsets", session)
     assert action == "consumed"
     assert any("pas encore disponible" in e.get("message", "") for e in sess.queue)
+
+
+def test_skills_now_implemented_in_tui(session):
+    """/skills est maintenant implémenté dans la TUI → consumé avec l'aide."""
+    sess, action = run("/skills", session)
+    assert action == "consumed"
+    # L'aide skills contient les sous-commandes
+    assert any("Compétences (skills)" in e.get("text", "") for e in sess.queue)
+
+
+def test_gateway_now_implemented_in_tui(session):
+    """/gateway est maintenant implémenté dans la TUI → consumé avec l'info."""
+    sess, action = run("/gateway", session)
+    assert action == "consumed"
+    assert any("Gateway NaabigaCode" in e.get("text", "") for e in sess.queue)
 
 
 def test_unknown_command_falls_back_to_llm(session):

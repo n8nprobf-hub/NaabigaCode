@@ -15,7 +15,6 @@ retourne :
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("naabigacode.tui_commands")
@@ -33,53 +32,41 @@ _IMPLEMENTED = {
     "whoami",
     "new",
     "reset",
+    "skills",
+    "platforms",
 }
 
 # Commandes connues du registre mais non exécutables dans la TUI — on le
 # dit poliment au lieu de les envoyer au LLM.
 _NOT_AVAILABLE_TUI = {
-    "skill", "skills", "memory", "undo", "redraw", "prompt", "compose",
+    "skill", "memory", "undo", "redraw", "prompt", "compose",
     "handoff", "branch", "fork", "background", "bg", "btw", "steer",
     "queue", "goal", "subgoal", "moa", "snapshot", "snap", "rollback",
     "approve", "deny", "start", "topic", "sethome",
-    "gateway", "plugins", "tools", "bundles", "pet", "suggestions",
+    "plugins", "tools", "bundles", "pet", "suggestions",
     "reload-skills", "journey", "learning", "save",
+    "toolsets",
 }
 
 
 def _stable_history(session: Any) -> List[Dict[str, Any]]:
-    """Événements stables de la session (rejouables).
-
-    Privilégie ``session.history`` (conservé même après consommation SSE) ;
-    replie sur la queue quand l'attribut n'existe pas (sessions créées avant
-    l'ajout du champ).
-    """
-    hist = getattr(session, "history", None)
-    if hist is not None:
-        return list(hist)
-    return list(getattr(session, "queue", []) or [])
+    """Événements stables de la session (replay exclut les commandes slash)."""
+    events: List[Dict[str, Any]] = []
+    for ev in getattr(session, "history", []) or []:
+        if isinstance(ev, dict) and ev.get("type") == "user" and ev.get("command"):
+            # Saute les commandes slash : on ne rejoue que le vrai prompt.
+            continue
+        events.append(ev)
+    return events
 
 
 def _last_user_text(session: Any, exclude: Optional[str] = None) -> Optional[str]:
-    """Dernier VRAI message utilisateur de la session (pour /retry).
-
-    Cherche dans l'historique STABLE (pas la queue, consommée par le SSE) et
-    ignore :
-    - *exclude* — le message courant ``/retry`` est lui-même émis comme
-      événement ``user`` avant le dispatch ;
-    - les événements marqués ``command`` (main.py les flague après une
-      commande slash consumée) — /retry après /help, /clear, /status…
-      doit rejouer le dernier vrai message, pas la commande slash.
-    """
-    for ev in reversed(_stable_history(session)):
-        if ev.get("type") != "user":
-            continue
-        if ev.get("command"):
-            continue
-        text = ev.get("text", "")
-        if exclude is not None and text == exclude:
-            continue
-        return text
+    """Dernier message utilisateur réel (hors commandes slash marquées)."""
+    for ev in reversed(getattr(session, "history", []) or []):
+        if isinstance(ev, dict) and ev.get("type") == "user" and not ev.get("command"):
+            if exclude and ev.get("text") == exclude:
+                continue
+            return ev.get("text")
     return None
 
 
@@ -120,99 +107,76 @@ def handle_slash(
     cmd = resolve_command(first)
 
     if cmd is None:
-        # Commande inconnue : info, puis on laisse le LLM la traiter.
-        emit({"type": "info", "message": f"commande inconnue «/{first}» — traitement comme prompt…"})
+        emit(
+            {
+                "type": "info",
+                "message": f"/{first} inconnue — sera traitée par le LLM.",
+            }
+        )
         return None
 
     name = cmd.name
 
+    # Commandes non disponibles dans la TUI (mais reconnues) : on prévient.
     if name in _NOT_AVAILABLE_TUI:
         emit(
             {
                 "type": "info",
-                "message": (
-                    f"/{name} — {cmd.description}\n"
-                    f"Cette commande n'est pas encore disponible dans la TUI "
-                    f"(disponible dans le CLI naabiga ou sur le gateway)."
-                ),
+                "message": f"/{name} n'est pas encore disponible dans la TUI (utilisez le CLI complet naabiga --cli).",
             }
         )
         return "consumed"
 
-    if name not in _IMPLEMENTED:
-        emit(
-            {
-                "type": "info",
-                "message": f"/{name} — {cmd.description}\nNon implémenté côté TUI pour l'instant.",
-            }
-        )
-        return "consumed"
-
-    # ---- Commandes implémentées ----
     if name == "help":
-        lines = ["Commandes disponibles dans la TUI (session) :"]
+        lines = ["Commandes disponibles dans la TUI (session) :", ""]
         for category, cmds in _help_by_category().items():
-            lines.append(f"· {category} :")
-            lines.extend(f"  {c}" for c in cmds)
-        lines.append("")
-        lines.append(
-            "(les commandes skills / CLI / gateway sont reconnues mais signalées "
-            "comme non disponibles dans la TUI.)"
-        )
-        emit({"type": "assistant", "text": "\n".join(lines)})
-        return "consumed"
-
-    if name == "whoami":
-        emit(
-            {
-                "type": "assistant",
-                "text": (
-                    "TUI NaabigaCode — session locale HTTP/SSE.\n"
-                    "Les droits et rôles (admin/utilisateur) ne s'appliquent qu'au gateway."
-                ),
-            }
-        )
+            lines.append(f"  {category} :")
+            for c in cmds:
+                lines.append(f"    {c}")
+            lines.append("")
+        emit({"type": "assistant", "text": "\n".join(lines).rstrip()})
         return "consumed"
 
     if name == "status":
-        runtime_secs = int(time.time() - getattr(session, "created_at", time.time()))
         emit(
             {
                 "type": "assistant",
                 "text": (
-                    f"Session {session_id}\n"
-                    f"créée il y a {runtime_secs}s\n"
-                    f"événements dans la file : {len(getattr(session, 'queue', []))}\n"
-                    f"occupée : {getattr(session, 'busy', False)}"
+                    f"session : {session_id}\n"
+                    f"backend : http://127.0.0.1:8400\n"
+                    f"historique : {len(getattr(session, 'history', []) or [])} événements"
                 ),
             }
         )
         return "consumed"
 
     if name == "clear":
-        # Événement spécial consommé par le frontend pour vider l'écran.
         emit({"type": "clear"})
-        emit({"type": "assistant", "text": "écran effacé."})
         return "consumed"
 
     if name == "history":
-        history = [
-            f"[{i}] {ev.get('type')}: {str(ev.get('text') or ev.get('message') or '')[:120]}"
-            for i, ev in enumerate(_stable_history(session))
-        ]
-        text = "\n".join(history) if history else "(historique vide)"
-        emit({"type": "assistant", "text": text})
+        hist = _stable_history(session)
+        if not hist:
+            emit({"type": "assistant", "text": "(historique vide)"})
+            return "consumed"
+        out = []
+        for ev in hist[-20:]:
+            t = ev.get("type")
+            if t == "user":
+                out.append(f"vous : {ev.get('text', '')}")
+            elif t == "assistant":
+                out.append(f"naabiga : {ev.get('text', '')[:200]}")
+        emit({"type": "assistant", "text": "\n".join(out)})
         return "consumed"
 
     if name == "retry":
-        # Exclut le message courant («/retry») — il a déjà été émis comme
-        # événement «user» avant le dispatch et ne doit pas être rejoué.
-        last = _last_user_text(session, exclude=stripped)
+        last = _last_user_text(session)
         if not last:
-            emit({"type": "assistant", "text": "rien à rejouer (aucun message utilisateur)."})
+            emit({"type": "info", "message": "aucun message à rejouer."})
             return "consumed"
-        emit({"type": "info", "message": f"Rejeu du dernier message : «{last[:200]}»"})
-        # Rejeu réel : le tour LLM repart avec la prompt originale.
+        emit({"type": "info", "message": f"rejoue : {last}"})
+        # On ré-émet le dernier vrai message comme prompt LLM.
+        emit({"type": "user", "text": last})
         return "rerun"
 
     if name in ("session", "sessions"):
@@ -232,12 +196,59 @@ def handle_slash(
             {
                 "type": "assistant",
                 "text": (
-                    "Nouvelle session : créez-en une via le frontend "
-                    "(rechargez la TUI ou utilisez /help pour les commandes)."
+                    "Nouvelle session : utilisez /clear pour repartir de zéro "
+                    "ou relancez la TUI (naabiga) pour une session neuve."
                 ),
             }
         )
         return "consumed"
 
-    # ---- Fallback : on laisse le LLM juger ----
+    if name == "skills":
+        emit(
+            {
+                "type": "assistant",
+                "text": (
+                    "Compétences (skills) :\n"
+                    "  /skills search <query>   — rechercher des compétences\n"
+                    "  /skills browse           — parcourir le catalogue\n"
+                    "  /skills inspect <name>   — détails d'une compétence\n"
+                    "  /skills install <name>   — installer une compétence\n"
+                    "  /skills audit            — auditer les compétences installées\n"
+                    "  /skills pending          — voir les validations en attente\n"
+                    "  /skills approve <id>     — approuver une écriture\n"
+                    "  /skills reject <id>      — rejeter une écriture\n"
+                    "  /skills approval on|off  — basculer la porte d'approbation\n"
+                    "\n"
+                    "Note : l'installation/validation nécessite le CLI complet (naabiga --cli).\n"
+                    "La TUI peut rechercher et inspecter."
+                ),
+            }
+        )
+        return "consumed"
+
+    if name == "platforms":
+        # Affiche le statut gateway / info (alias gateway)
+        emit(
+            {
+                "type": "assistant",
+                "text": (
+                    "Gateway NaabigaCode :\n"
+                    "  Statut : non connecté (TUI locale)\n"
+                    "  Pour connecter le gateway : naabiga --gateway\n"
+                    "\n"
+                    "Commandes gateway disponibles (CLI/gateway) :\n"
+                    "  /start     — accusé de réception de démarrage de plateforme\n"
+                    "  /approve   — approuver une commande en attente\n"
+                    "  /deny      — refuser une commande en attente\n"
+                    "  /sethome   — définir ce chat comme canal d'accueil\n"
+                    "  /topic     — sessions par sujet Telegram\n"
+                    "\n"
+                    "Le gateway gère Telegram, Discord, Slack, Matrix, etc.\n"
+                    "Depuis la TUI : utilisez /help pour la liste complète."
+                ),
+            }
+        )
+        return "consumed"
+
+    # Commande inconnue ou non gérée ici → laisser partir au LLM.
     return None
