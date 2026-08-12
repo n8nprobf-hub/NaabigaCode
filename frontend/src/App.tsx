@@ -43,65 +43,129 @@ function truncate(value: unknown, max = 120): string {
   return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine
 }
 
-function EventLine({ event }: { event: SessionEvent }) {
-  switch (event.type) {
-    case 'user':
-      // Message utilisateur en texte clair, comme Claude Code.
-      return (
-        <Box>
-          <Text>{event.text}</Text>
+// Affiche une commande slash (fond gris foncé, texte blanc, comme CC)
+function SlashCommand({ text }: { text: string }) {
+  return (
+    <Box backgroundColor="#1a1a1a" paddingX={1} marginY={0.5}>
+      <Text color="white">{text}</Text>
+    </Box>
+  )
+}
+
+// Carte tool call avec mode permission (conforme capture CC v2.x)
+function ToolCard({ event }: { event: SessionEvent }) {
+  // Type guard pour tool_permission
+  if (event.type === 'tool_permission') {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Box backgroundColor="#00a3cc" paddingX={1}>
+          <Text color="white" bold>Bash command</Text>
         </Box>
-      )
-    case 'assistant':
-      // Réponse assistant : pastille ● + texte clair (streaming fusionné).
-      return (
-        <Box>
-          <Text color="gray">● </Text>
-          <Text>{event.text}</Text>
+        <Box paddingX={1} paddingY={0.5}>
+          <Text color="white">{event.name}</Text>
+          <Text color="#888">  {event.description}</Text>
+          {event.input !== undefined ? (
+            <Text color="#888">  ({truncate(event.input, 100)})</Text>
+          ) : null}
         </Box>
-      )
-    case 'thinking':
-      // «● Thinking…» en dim + détail, comme le mode think de Claude.
-      return (
-        <Box>
-          <Text color="magenta" dimColor>
-            <Spinner type="dots" /> thinking
+        <Box paddingX={1} paddingBottom={0.5}>
+          <Text color="white">Do you want to proceed?</Text>
+          <Text color="#aaa">
+            {' '}1. Yes  2. No  3. Skip  4. View
           </Text>
-          {event.text ? <Text color="gray"> — {event.text}</Text> : null}
         </Box>
-      )
-    case 'tool':
-      // Carte compacte type Claude Code : «● Bash(cmd)» — nom coloré
-      // + entrée entre parenthèses, sortie indentée ├── dans la couleur.
-      return (
-        <Box flexDirection="column">
-          <Box>
-            <Text color={toolColor(event.name)} bold>
-              ● {event.name}
-            </Text>
-            {event.input !== undefined ? (
-              <Text color={toolColor(event.name)} dimColor>
-                ({truncate(event.input, 110)})
-              </Text>
-            ) : null}
-          </Box>
-          {event.output !== undefined ? (
-            <Text color={toolColor(event.name)} dimColor>
-              ├── {truncate(event.output, 160)}
+      </Box>
+    )
+  }
+
+  // Type guard pour tool
+  if (event.type === 'tool') {
+    const color = toolColor(event.name)
+    const isExpanded = event.expanded === true
+    const output = event.output as string | undefined
+    const truncated = output !== undefined ? truncate(output, isExpanded ? 2000 : 160) : null
+    const wasTruncated = output !== undefined && output.length > 160 && !isExpanded
+    
+    return (
+      <Box flexDirection="column" marginTop={0.5}>
+        <Box>
+          <Text color={color} bold>● {event.name}</Text>
+          {event.input !== undefined ? (
+            <Text color={color} dimColor>
+              ({truncate(event.input, 110)})
             </Text>
           ) : null}
         </Box>
-      )
+        {output !== undefined ? (
+          <Box flexDirection="column">
+            <Text color={color} dimColor>
+              ├── {truncated}
+            </Text>
+            {wasTruncated ? (
+              <Text color={color} dimColor>
+                │  (ctrl+o to expand — {output.length} chars)
+              </Text>
+            ) : null}
+          </Box>
+        ) : null}
+      </Box>
+    )
+  }
+
+  return null
+}
+
+// Message assistant : ● gris + texte (streaming fusionné)
+function AssistantMessage({ event }: { event: SessionEvent }) {
+  // Type guard pour assistant
+  if (event.type === 'assistant') {
+    return (
+      <Box>
+        <Text color="gray">● </Text>
+        <Text>{event.text}</Text>
+      </Box>
+    )
+  }
+  return null
+}
+
+// Thinking : ∴ thinking… + détail (style CC)
+function Thinking({ event }: { event: SessionEvent }) {
+  // Type guard pour thinking
+  if (event.type === 'thinking') {
+    return (
+      <Box>
+        <Text color="magenta" dimColor>
+          ∴ thinking
+        </Text>
+        {event.text ? <Text color="gray"> — {event.text}</Text> : null}
+      </Box>
+    )
+  }
+  return null
+}
+
+function EventLine({ event }: { event: SessionEvent }) {
+  switch (event.type) {
+    case 'user':
+      return <Text>{event.text}</Text>
+    case 'slash':
+      return <SlashCommand text={event.text} />
+    case 'assistant':
+      return <AssistantMessage event={event} />
+    case 'thinking':
+      return <Thinking event={event} />
+    case 'tool':
+    case 'tool_permission':
+      return <ToolCard event={event} />
     case 'error':
       return <Text color="red">✕ {event.message}</Text>
     case 'info':
       return <Text color="blue" dimColor>{event.message}</Text>
     case 'done':
-      return null
     case 'clear':
-      return null
     case 'aborted':
-      return <Text color="red" dimColor>✕ aborted</Text>
+      return null
     default:
       return null
   }

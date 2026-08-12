@@ -1,6 +1,6 @@
 {
   "name": "naabigacode",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "description": "NaabigaCode — agentic coding en terminal (TUI style Claude Code + backend Python). Installation one-shot : backend auto-installé dans ~/.naabiga.",
   "type": "module",
   "license": "MIT",
@@ -33,7 +33,7 @@
     "postinstall": "node scripts/install-backend.mjs"
   },
   "dependencies": {
-    "naabigacode-frontend": "^0.2.1"
+    "naabigacode-frontend": "^0.2.6"
   },
   "engines": {
     "node": ">=20"

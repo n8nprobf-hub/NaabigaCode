@@ -6,13 +6,15 @@
 export type SessionEvent =
   | { type: 'user'; text: string }
   | { type: 'assistant'; text: string }
-  | { type: 'tool'; name: string; input?: unknown; output?: unknown }
+  | { type: 'tool'; name: string; input?: unknown; output?: unknown; expanded?: boolean }
+  | { type: 'tool_permission'; name: string; description: string; input?: unknown }
   | { type: 'thinking'; text?: string }
   | { type: 'error'; message: string }
   | { type: 'done' }
   | { type: 'aborted' }
   | { type: 'info'; message: string }
   | { type: 'clear' }
+  | { type: 'slash'; text: string }
 
 export interface SessionApi {
   createSession(): Promise<string | null>
