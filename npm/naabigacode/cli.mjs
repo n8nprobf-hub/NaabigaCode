@@ -7,7 +7,6 @@
  * ~/.naabiga/backend/main.py, installé par le postinstall).
  */
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
 
@@ -20,4 +19,7 @@ try {
   process.exit(1)
 }
 
-await import(fileURLToPath(new URL(`file://${cliPath}`)))
+// import() direct avec le chemin absolu : Node gère les chemins Windows
+// (C:\...) et POSIX (/...). PAS de new URL('file://' + path) — sur Windows
+// ça casse avec ERR_UNSUPPORTED_ESM_URL_SCHEME (protocole 'c:').
+await import(cliPath)
